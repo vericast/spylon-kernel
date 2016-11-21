@@ -55,13 +55,26 @@ def initialize_scala_kernel():
 
     from spylon.spark.utils import SparkJVMHelpers
     assert isinstance(spark_jvm_helpers, SparkJVMHelpers)
+    from pyspark.sql import SparkSession
+    assert isinstance(spark_session, SparkSession)
 
-    jvm = spark_session.jvm
-    jconf = spark_session._jsession.sparkConf()
+    jvm = spark_session._jvm
+    jconf = spark_session._jsc.getConf()
     bytes_out = jvm.org.apache.commons.io.output.ByteArrayOutputStream()
-    # yay none is a reserved word!
-    scala_none = getattr(jvm.scala, "None")()
-    iloop = jvm.org.apache.spark.repl.SparkILoop(scala_none, bytes_out)
+
+    io = jvm.java.io
+    n = io.BufferedReader._java_lang_class.cast(None)
+    Option = jvm.scala.Option
+    scala_none = Option.apply(n)
+    k = jvm.org.apache.spark.repl.SparkILoop
+
+    jprintWriter = io.PrintWriter(bytes_out, True)
+
+    iloop = k(scala_none, jprintWriter)
+    # jin = io.BufferedReader(io.InputStreamReader(io.ByteArrayInputStream()));
+
+    # iloop = k(Option.apply(jin), jprintWriter)
+
 
     """
     val jars = Utils.getUserJars(conf, isShell=true).mkString(File.pathSeparator)
@@ -88,7 +101,7 @@ def initialize_scala_kernel():
     output_dir = os.path.abspath(tempfile.mkdtemp())
     def cleanup():
         shutil.rmtree(output_dir, True)
-    atexit.register(cleanup())
+    atexit.register(cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
     jconf.set("spark.repl.class.outputDir", output_dir)
@@ -96,22 +109,45 @@ def initialize_scala_kernel():
       jconf.set("spark.executor.uri", execUri)
 
 
-    jars = jvm.org.apache.spark.Utils.getUserJars(spark_session._jsession.sparkConf(), True).mkString(":")
-    interpArguments = spark_jvm_helpers.to_scala_seq(
-        "-Yrepl-class-based", "-Yrepl-outdir", output_dir
+    jars = jvm.org.apache.spark.util.Utils.getUserJars(jconf, True).mkString(":")
+    interpArguments = spark_jvm_helpers.to_scala_list(
+        ["-Yrepl-class-based", "-Yrepl-outdir", output_dir,
+         "-classpath", jars
+         ]
     )
+
 
     # settings = jvm. scala.tools.nsc.GenericRunnerSettings()
     settings = jvm. scala.tools.nsc.Settings()
     settings.processArguments(interpArguments, True)
 
     # start the interpreter
-    iloop.settings = settings
-    iloop.createInterpreter()
-    iloop.initializeSynchronous()
-    iloop.loadFiles(settings)
-    iloop.loopPostInit()
-    iloop.printWelcome()
+    getattr(iloop, "settings_$eq")(settings)
+
+    def start_manual():
+        iloop.createInterpreter()
+        iloop.intp().initializeSynchronous()
+
+        Future = getattr(getattr(jvm.scala.concurrent, "Future$"), "MODULE$")
+        method_name = "scala$tools$nsc$interpreter$ILoop$$globalFuture_$eqscala$tools$nsc$interpreter$ILoop$$globalFuture_$eq"
+        m = getattr(iloop,
+                "scala$tools$nsc$interpreter$ILoop$$globalFuture_$eqscala$tools$nsc$interpreter$ILoop$$globalFuture_$eq")
+        C = iloop.getClass()
+        mm = list(C.getDeclaredMethods())
+        dummyFuture = Future.successful(True)
+        FutureTrait = jvm.scala.concurrent.Future
+
+        casted = FutureTrait._java_lang_class.cast(dummyFuture)
+        m(casted)
+
+
+        iloop.loadFiles(settings)
+        iloop.loopPostInit()
+        iloop.printWelcome()
+
+    def start_auto():
+        iloop.process(settings)
+    start_manual()
 
     return _SparkILoopWrapper(jvm, iloop, bytes_out)
 
@@ -248,7 +284,8 @@ def register_magics(kernel):
 
 
 if __name__ == '__main__':
-    MetaKernelScala.run_as_main()
+    initialize_scala_kernel()
+    # MetaKernelScala.run_as_main()
 
 
 
