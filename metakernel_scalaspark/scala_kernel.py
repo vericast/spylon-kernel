@@ -219,10 +219,11 @@ class _SparkILoopWrapper(object):
         finally:
             self.jbyteout.reset()
 
+    @property
     def jcompleter(self):
         if self._jcompleter is None:
             jClass = self.jvm.scala.tools.nsc.interpreter.PresentationCompilerCompleter
-            self._jcompleter = jClass(self.jiloop.intp())
+            self._jcompleter = jClass(self.jiloop)
         return self._jcompleter
 
 
@@ -233,8 +234,9 @@ class _SparkILoopWrapper(object):
         :param pos:
         :return:
         """
-        jres = self._jcompleter.completer(code, pos)
-        return list(_scala_seq_to_py(jres.candidates))
+        c = self.jcompleter
+        jres = c.complete(code, pos)
+        return list(_scala_seq_to_py(jres.candidates()))
 
     def is_complete(self, code):
         try:
