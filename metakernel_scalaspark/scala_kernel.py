@@ -70,7 +70,7 @@ def initialize_scala_kernel():
 
     jprintWriter = io.PrintWriter(bytes_out, True)
 
-    iloop = k(scala_none, jprintWriter)
+    # iloop = k(scala_none, jprintWriter)
     # jin = io.BufferedReader(io.InputStreamReader(io.ByteArrayInputStream()));
 
     # iloop = k(Option.apply(jin), jprintWriter)
@@ -118,11 +118,49 @@ def initialize_scala_kernel():
 
 
     # settings = jvm. scala.tools.nsc.GenericRunnerSettings()
-    settings = jvm. scala.tools.nsc.Settings()
+    settings = jvm.scala.tools.nsc.Settings()
     settings.processArguments(interpArguments, True)
 
     # start the interpreter
-    getattr(iloop, "settings_$eq")(settings)
+    # getattr(iloop, "settings_$eq")(settings)
+
+    def start_imain():
+        intp = jvm.scala.tools.nsc.interpreter.IMain(settings, jprintWriter)
+        intp.initializeSynchronous()
+        # Copied directly from Spark
+        intp.interpret("""
+            @transient val spark = if (org.apache.spark.repl.Main.sparkSession != null) {
+                org.apache.spark.repl.Main.sparkSession
+              } else {
+                org.apache.spark.repl.Main.createSparkSession()
+              }
+            @transient val sc = {
+              val _sc = spark.sparkContext
+              if (_sc.getConf.getBoolean("spark.ui.reverseProxy", false)) {
+                val proxyUrl = _sc.getConf.get("spark.ui.reverseProxyUrl", null)
+                if (proxyUrl != null) {
+                  println(s"Spark Context Web UI is available at ${proxyUrl}/proxy/${_sc.applicationId}")
+                } else {
+                  println(s"Spark Context Web UI is available at Spark Master Public URL")
+                }
+              } else {
+                _sc.uiWebUrl.foreach {
+                  webUrl => println(s"Spark context Web UI available at ${webUrl}")
+                }
+              }
+              println("Spark context available as 'sc' " +
+                s"(master = ${_sc.master}, app id = ${_sc.applicationId}).")
+              println("Spark session available as 'spark'.")
+              _sc
+            }
+            """)
+        intp.interpret("import org.apache.spark.SparkContext._")
+        intp.interpret("import spark.implicits._")
+        intp.interpret("import spark.sql")
+        intp.interpret("import org.apache.spark.sql.functions._")
+        bytes_out.reset()
+        return intp
+
 
     def start_manual():
         iloop.createInterpreter()
@@ -147,9 +185,9 @@ def initialize_scala_kernel():
 
     def start_auto():
         iloop.process(settings)
-    start_manual()
+    imain = start_imain()
 
-    return _SparkILoopWrapper(jvm, iloop, bytes_out)
+    return _SparkILoopWrapper(jvm, imain, bytes_out)
 
 
 def _scala_seq_to_py(jseq):
@@ -170,14 +208,14 @@ class _SparkILoopWrapper(object):
         try:
             res = self.jiloop.interpret(code, synthetic)
 
-            result = res.toString
+            result = res.toString()
             if result == "Success":
                 return self.jbyteout.toByteArray()
             elif result == 'Error':
                 raise Exception(self.jbyteout.toByteArray())
             elif result == 'Incomplete':
                 raise Exception(self.jbyteout.toByteArray())
-
+            return result
         finally:
             self.jbyteout.reset()
 
@@ -284,7 +322,17 @@ def register_magics(kernel):
 
 
 if __name__ == '__main__':
-    initialize_scala_kernel()
+    wrapper = initialize_scala_kernel()
+
+    print(wrapper.interpret("4 + 4"))
+
+    print(wrapper.interpret("val x = 4"))
+
+    print(wrapper.complete('x.toL', 5))
+
+    print(wrapper.interpret("x * 2"))
+
+
     # MetaKernelScala.run_as_main()
 
 
