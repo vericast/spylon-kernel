@@ -3,3 +3,4 @@ spylon
 jedi
 pandas
 findspark
+pyyaml
