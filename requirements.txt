@@ -2,3 +2,4 @@ metakernel
 spylon
 jedi
 pandas
+findspark
