@@ -10,6 +10,9 @@ before_install:
   - tar xf spark-2.0.2-bin-hadoop2.7.tgz -C $HOME/.cache/spark
 env:
   - SPARK_HOME=$HOME/.cache/spark/spark-2.0.2-bin-hadoop2.7 SPARK_SUBMIT_OPTS="-Dscala.usejavacp=true" PYTHONUNBUFFERED=1
+install:
+  - pip install -r requirements.txt
+  - pip install .
 script:
   - pytest
   
