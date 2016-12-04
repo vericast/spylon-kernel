@@ -4,3 +4,4 @@ jedi
 pandas
 findspark
 pyyaml
+ipykernel
