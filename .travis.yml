@@ -13,11 +13,16 @@ env:
 install:
   - pip install -r requirements.txt
   - pip install .
+  - pip install codecov coverage
 script:
-  - pytest -vrsx --capture=sys --color=yes
+  - coverage run pytest -vrsx --capture=sys --color=yes
+  - coverage report -m
   
 # Cache these at the end of the build
 cache:     
   directories:
     - $HOME/.cache/pip
     - $HOME/.cache/spark
+
+after_success:
+    - codecov
