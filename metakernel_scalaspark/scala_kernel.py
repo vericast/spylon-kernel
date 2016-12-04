@@ -407,9 +407,12 @@ class MetaKernelScala(MetaKernel):
         # python_magic = self.line_magics['python']
         # return python_magic.get_help_on(info, level, none_on_fail)
         intp =self._get_scala_interpreter()
-
-        code = info + '*typeAt *{} *{} *'.format(0, len(info))
-        return self.intp.complete(code, len(code))
+        self.log.critical(info['help_obj'])
+        # Calling this twice produces differnt output
+        code = intp.complete(info['help_obj'], len(info['help_obj']))
+        code = intp.complete(info['help_obj'], len(info['help_obj']))
+        self.log.critical(code)
+        return '\n'.join(code)
 
 
 def register_magics(kernel):
