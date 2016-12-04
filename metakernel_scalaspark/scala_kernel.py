@@ -47,6 +47,10 @@ def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
     from spylon.spark.utils import SparkJVMHelpers
     global spark_jvm_helpers
     spark_jvm_helpers = SparkJVMHelpers(spark_session._sc)
+    # TODO : Capturing the STDERR / STDOUT from the java process requires us to hook in with gdb and duplicate the pipes
+    #        This is not particularly pretty
+
+
 
 
 def initialize_scala_kernel():
@@ -178,13 +182,13 @@ def initialize_scala_kernel():
         casted = FutureTrait._java_lang_class.cast(dummyFuture)
         m(casted)
 
-
         iloop.loadFiles(settings)
         iloop.loopPostInit()
         iloop.printWelcome()
 
     def start_auto():
         iloop.process(settings)
+
     imain = start_imain()
 
     return _SparkILoopWrapper(jvm, imain, bytes_out)
@@ -202,6 +206,11 @@ class _SparkILoopWrapper(object):
         self._jcompleter = None
         self.jvm = jvm
         self.jiloop = jiloop
+
+        interpreterPkg = getattr(getattr(self.jvm.scala.tools.nsc.interpreter, 'package$'), "MODULE$")
+        # = spark_jvm_helpers.import_scala_package_object("scala.tools.nsc.interpreter")
+        dir(interpreterPkg)
+        self.iMainOps = interpreterPkg.IMainOps(jiloop)
         self.jbyteout = jbyteout
 
     def interpret(self, code, synthetic=False):
@@ -210,12 +219,12 @@ class _SparkILoopWrapper(object):
 
             result = res.toString()
             if result == "Success":
-                return self.jbyteout.toByteArray()
+                pyres = self.jbyteout.toByteArray()
             elif result == 'Error':
                 raise Exception(self.jbyteout.toByteArray())
             elif result == 'Incomplete':
                 raise Exception(self.jbyteout.toByteArray())
-            return result
+            return pyres.decode("utf-8")
         finally:
             self.jbyteout.reset()
 
@@ -230,11 +239,17 @@ class _SparkILoopWrapper(object):
     def complete(self, code, pos):
         """
 
-        :param code:
-        :param pos:
-        :return:
+        Parameters
+        ----------
+        code : str
+        pos : int
+
+        Returns
+        -------
+        List[str]
         """
         c = self.jcompleter
+        print(dir(self.jcompleter))
         jres = c.complete(code, pos)
         return list(_scala_seq_to_py(jres.candidates()))
 
@@ -245,12 +260,29 @@ class _SparkILoopWrapper(object):
         finally:
             self.jbyteout.reset()
 
+    def get_help_on(self, info):
+        code = info + '// typeAt {} {}'.format(0, len(info))
+        scala_type = self.complete(code, len(code))
+        # When using the // typeAt hint we will get back a list made by
+        # "" :: type :: Nil
+        # according to https://github.com/scala/scala/blob/2.12.x/src/repl/scala/tools/nsc/interpreter/PresentationCompilerCompleter.scala#L52
+        assert len(scala_type) == 2
+        # TODO: Given that we have a type here we can interpret some java class reflection to see if we can get some
+        #       better results for the function in question
+
+
+        return scala_type[-1]
+
+    def printHelp(self):
+        return self.jiloop.helpSummary()
+
+
+
 def get_scala_interpreter():
     global scala_intp
     if scala_intp is None:
         scala_intp = initialize_scala_kernel()
     return scala_intp
-
 
 
 class MetaKernelScala(MetaKernel):
@@ -263,11 +295,11 @@ class MetaKernelScala(MetaKernel):
         'mimetype': 'text/x-scala',
         'name': 'scala',
         # ------ If different from 'language':
-        # 'codemirror_mode': {
-        #    "version": 2,
-        #    "name": "ipython"
-        # }
-        # 'pygments_lexer': 'language',
+        'codemirror_mode': {
+           "version": "2.11",
+           "name": "scala"
+        },
+        'pygments_lexer': 'scala',
         # 'version'       : "x.y.z",
         'file_extension': '.scala',
         'help_links': MetaKernel.help_links,
@@ -324,18 +356,15 @@ def register_magics(kernel):
 
 
 if __name__ == '__main__':
-    wrapper = initialize_scala_kernel()
-
-    print(wrapper.interpret("4 + 4"))
-
-    print(wrapper.interpret("val x = 4"))
-
-    print(wrapper.complete('x.toL', 5))
-
-    print(wrapper.interpret("x * 2"))
-
-
-    # MetaKernelScala.run_as_main()
+    # wrapper = initialize_scala_kernel()
+    #
+    # print(wrapper.interpret("4 + 4"))
+    # print(wrapper.interpret("val x = 4"))
+    # print(wrapper.complete('x.toL', 5))
+    # print(wrapper.interpret("x * 2"))
+    #
+    #
+    MetaKernelScala.run_as_main()
 
 
 
