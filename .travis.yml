@@ -15,7 +15,7 @@ install:
   - pip install .
   - pip install codecov coverage
 script:
-  - coverage run pytest -vrsx --capture=sys --color=yes
+  - coverage run run_tests.py -vrsx --capture=sys --color=yes
   - coverage report -m
   
 # Cache these at the end of the build
