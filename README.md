@@ -33,7 +33,7 @@ The launch arguments can be customized using the `%%init_spark` magic as follows
 %%init_spark
 launcher.jars = ["file://some/jar.jar"]
 launcher.master = "local[4]"
-launcher.conf.spar.executor.cores = 8
+launcher.conf.spark.executor.cores = 8
 ```
 
 ## Other languages
