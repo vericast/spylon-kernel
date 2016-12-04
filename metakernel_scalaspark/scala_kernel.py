@@ -398,10 +398,26 @@ class MetaKernelScala(MetaKernel):
     def get_completions(self, info):
         intp = self._get_scala_interpreter()
         # raise Exception(repr(info))
-        return intp.complete(info['code'], info['help_pos'])
+        c = intp.complete(info['code'], info['help_pos'])
 
-        python_magic = self.line_magics['python']
-        return python_magic.get_completions(info)
+        # Find common bits in the middle
+        def trim(prefix, completions):
+            """Due to the nature of scala's completer we get full method names.
+            We need to trim out the common pieces.  Try longest prefix first etc
+            """
+            potential_prefix = os.path.commonprefix(completions)
+            for i in reversed(range(len(potential_prefix)+1)):
+                if prefix.endswith(potential_prefix[:i]):
+                    return i
+            return 0
+
+        prefix = info['code'][info['start']:info['help_pos']]
+
+        offset = trim(prefix, c)
+
+        a = [prefix + h[offset:] for h in c]
+        self.log.critical("info %s\n    completions %s\n     final %s", info, c, a)
+        return a
 
     def get_kernel_help_on(self, info, level=0, none_on_fail=False):
         # python_magic = self.line_magics['python']
