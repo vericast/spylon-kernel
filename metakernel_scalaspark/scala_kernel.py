@@ -1,6 +1,8 @@
 from __future__ import absolute_import, print_function, division
 
 import os
+import traceback
+
 import spylon.spark.launcher
 import tempfile
 import shutil
@@ -49,8 +51,6 @@ def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
     spark_jvm_helpers = SparkJVMHelpers(spark_session._sc)
     # TODO : Capturing the STDERR / STDOUT from the java process requires us to hook in with gdb and duplicate the pipes
     #        This is not particularly pretty
-
-
 
 
 def initialize_scala_kernel():
@@ -131,6 +131,14 @@ def initialize_scala_kernel():
     def start_imain():
         intp = jvm.scala.tools.nsc.interpreter.IMain(settings, jprintWriter)
         intp.initializeSynchronous()
+        # TODO:
+
+
+        """
+        System.setOut(new PrintStream(new File("output-file.txt")));
+
+        """
+
         # Copied directly from Spark
         intp.interpret("""
             @transient val spark = if (org.apache.spark.repl.Main.sparkSession != null) {
@@ -200,6 +208,13 @@ def _scala_seq_to_py(jseq):
         yield jseq.apply(i)
 
 
+class ScalaException(Exception):
+
+    def __init__(self, scala_message, *args, **kwargs):
+        super(ScalaException, self).__init__(*args, **kwargs)
+        self.scala_message = scala_message
+
+
 class _SparkILoopWrapper(object):
 
     def __init__(self, jvm, jiloop, jbyteout):
@@ -216,14 +231,15 @@ class _SparkILoopWrapper(object):
     def interpret(self, code, synthetic=False):
         try:
             res = self.jiloop.interpret(code, synthetic)
+            pyres = self.jbyteout.toByteArray()
 
-            result = res.toString()
+            result = res.toString().encode("utf-8")
             if result == "Success":
-                pyres = self.jbyteout.toByteArray()
+                return pyres
             elif result == 'Error':
-                raise Exception(self.jbyteout.toByteArray())
+                raise ScalaException(pyres)
             elif result == 'Incomplete':
-                raise Exception(self.jbyteout.toByteArray())
+                raise ScalaException(pyres)
             return pyres.decode("utf-8")
         finally:
             self.jbyteout.reset()
@@ -256,6 +272,7 @@ class _SparkILoopWrapper(object):
     def is_complete(self, code):
         try:
             res = self.jiloop.parse.apply(code)
+            # TODO: Finish this up.
 
         finally:
             self.jbyteout.reset()
@@ -282,23 +299,36 @@ def get_scala_interpreter():
     global scala_intp
     if scala_intp is None:
         scala_intp = initialize_scala_kernel()
+
     return scala_intp
 
+
+class TextOutput(object):
+    """Wrapper for text output wose repr is the text itself.
+
+    This avoids the repr(output) quoting our output strings.
+
+    Notes
+    -----
+    Adapted from eclairjs-kernel
+    """
+    def __init__(self, output):
+        self.output = output
+
+    def __repr__(self):
+        return self.output
 
 class MetaKernelScala(MetaKernel):
     implementation = 'SparkScala Jupyter'
     implementation_version = '1.0'
     language = 'scala'
     language_version = '0.1'
-    banner = "MetaKernel Scala - evaluates Scaal statements and expressions"
+    banner = "MetaKernel Scala - evaluates Scala statements and expressions."
     language_info = {
         'mimetype': 'text/x-scala',
         'name': 'scala',
         # ------ If different from 'language':
-        'codemirror_mode': {
-           "version": "2.11",
-           "name": "scala"
-        },
+        'codemirror_mode': "text/x-scala",
         'pygments_lexer': 'scala',
         # 'version'       : "x.y.z",
         'file_extension': '.scala',
@@ -307,10 +337,22 @@ class MetaKernelScala(MetaKernel):
     kernel_json = {
         "argv": [
             sys.executable, "-m", "metakernel_scalaspark", "-f", "{connection_file}"],
-        "display_name": "MetaKernel Python",
+        "display_name": "MetaKernel Scala Spark",
+        "env": {
+            "SPARK_SUBMIT_OPTS": "-Dscala.usejavacp=true",
+            "PYTHONUNBUFFERED": "1",
+        },
         "language": "scala",
         "name": "metakernel_scala"
     }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._interp = None
+
+    @property
+    def pythonmagic(self):
+        return self.line_magics['python']
 
     def get_usage(self):
         return ("This is MetaKernel Scala Spark. It implements a Scala interpreter.")
@@ -320,8 +362,22 @@ class MetaKernelScala(MetaKernel):
         Set a variable in the kernel language.
         """
 
+
+
+
         # python_magic = self.line_magics['python']
         # python_magic.env[name] = value
+
+    def _get_scala_interpreter(self):
+        if self._interp is None:
+            self.Display("Intitializing scala interpreter....")
+            self._interp = get_scala_interpreter()
+            self.Display("Scala interpreter initialized.")
+            self.pythonmagic.env['spark'] = spark_session
+            self.Display("Registered spark session in scala and python context as `spark`")
+        return self._interp
+
+
 
     def get_variable(self, name):
         """
@@ -331,14 +387,18 @@ class MetaKernelScala(MetaKernel):
         # return python_magic.env.get(name, None)
 
     def do_execute_direct(self, code, silent=False):
-        intp = get_scala_interpreter()
-        return intp.interpret(code.strip())
-        python_magic = self.line_magics['python']
-        return python_magic.eval(code.strip())
+        intp = self._get_scala_interpreter()
+        try:
+            return TextOutput(intp.interpret(code.strip()))
+        except ScalaException as e:
+            return self.Error(e.scala_message)
+        #python_magic = self.line_magics['python']
+        #return python_magic.eval(code.strip())
 
     def get_completions(self, info):
-        intp = get_scala_interpreter()
-        return intp.complete(info['code'], info['cursor'])
+        intp = self._get_scala_interpreter()
+        # raise Exception(repr(info))
+        return intp.complete(info['code'], info['help_pos'])
 
         python_magic = self.line_magics['python']
         return python_magic.get_completions(info)
@@ -346,6 +406,7 @@ class MetaKernelScala(MetaKernel):
     def get_kernel_help_on(self, info, level=0, none_on_fail=False):
         # python_magic = self.line_magics['python']
         # return python_magic.get_help_on(info, level, none_on_fail)
+        intp =self._get_scala_interpreter()
 
         code = info + '*typeAt *{} *{} *'.format(0, len(info))
         return self.intp.complete(code, len(code))
@@ -353,20 +414,6 @@ class MetaKernelScala(MetaKernel):
 
 def register_magics(kernel):
     kernel.register_magics(InitSparkContext)
-
-
-if __name__ == '__main__':
-    # wrapper = initialize_scala_kernel()
-    #
-    # print(wrapper.interpret("4 + 4"))
-    # print(wrapper.interpret("val x = 4"))
-    # print(wrapper.complete('x.toL', 5))
-    # print(wrapper.interpret("x * 2"))
-    #
-    #
-    MetaKernelScala.run_as_main()
-
-
 
 
 #TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
