@@ -29,6 +29,15 @@ def test_completion(scala_kernel):
 #     h = scala_kernel.iMainOps.implicitsCommand("")
 #     assert h == ''
 
+def test_last_result(scala_kernel):
+    scala_kernel.interpret("""
+    case class LastResult(member: Int)
+    val foo = LastResult(8)
+    """)
+    jres = scala_kernel.last_result()
+
+    assert jres.getClass().getName().endswith("LastResult")
+    assert jres.member() == 8
 
 def test_help(scala_kernel):
     scala_kernel.interpret("val x = 4")

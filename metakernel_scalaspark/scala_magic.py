@@ -38,12 +38,17 @@ class ScalaMagic(Magic):
             %scala x + math.pi
         """
         code = " ".join(args)
-        self.retval = self.eval(code)
+        self.eval(code, True)
 
-    def eval(self, code):
+    def eval(self, code, raw):
         intp = self._get_scala_interpreter()
         try:
-            return TextOutput(intp.interpret(code.strip()))
+            res = intp.interpret(code.strip())
+            if raw:
+                self.res = intp.last_result()
+                return self.res
+            else:
+                return TextOutput(res)
         except ScalaException as e:
             return self.kernel.Error(e.scala_message)
 
@@ -79,14 +84,14 @@ class ScalaMagic(Magic):
         if self.code.strip():
             if eval_output:
                 # TODO: Validate this works?
-                self.eval(self.code)
+                self.eval(self.code, False)
                 # self.code = str(self.env["retval"]) if ("retval" in self.env and
                 #                                         self.env["retval"] != None) else ""
                 self.retval = None
                 #self.env["retval"] = None
                 self.evaluate = True
             else:
-                self.retval = self.eval(self.code)
+                self.retval = self.eval(self.code, False)
                 #self.env["retval"] = None
                 self.evaluate = False
 

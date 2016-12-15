@@ -181,6 +181,11 @@ class _SparkILoopWrapper(object):
         finally:
             self.jbyteout.reset()
 
+    def last_result(self):
+        lr = self.jiloop.lastRequest()
+        res = lr.lineRep().call("$result", spark_jvm_helpers.to_scala_list([]))
+        return res
+
     @property
     def jcompleter(self):
         if self._jcompleter is None:
