@@ -1,6 +1,6 @@
 import pytest
 
-from metakernel_scalaspark._scala_interpreter import initialize_scala_kernel
+from spylon_kernel._scala_interpreter import initialize_scala_kernel
 
 
 @pytest.fixture(scope="module")

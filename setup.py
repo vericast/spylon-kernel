@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 version = '0.0.1'
 
 setup(
-    name='metakernel-scala-spark',
+    name='spylon-kernel',
     description='Jupyter metakernel for apache spark and scala',
     version=str(version),
     url='',

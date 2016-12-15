@@ -1,6 +1,6 @@
-# Metakernel scala spark
-[![Build Status](https://travis-ci.org/mariusvniekerk/metakernel-scala-spark.svg?branch=master)](https://travis-ci.org/mariusvniekerk/metakernel-scala-spark)
-[![codecov](https://codecov.io/gh/mariusvniekerk/metakernel-scala-spark/branch/master/graph/badge.svg)](https://codecov.io/gh/mariusvniekerk/metakernel-scala-spark)
+# spylon-kernel
+[![Build Status](https://travis-ci.org/mariusvniekerk/spylon-kernel.svg?branch=master)](https://travis-ci.org/mariusvniekerk/spylon-kernel)
+[![codecov](https://codecov.io/gh/mariusvniekerk/spylon-kernel/branch/master/graph/badge.svg)](https://codecov.io/gh/mariusvniekerk/spylon-kernel)
 
 This is an extremely early proof of concept for using the metakernel in combination with py4j to make a simpler
 kernel for scala.

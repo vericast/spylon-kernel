@@ -7,11 +7,11 @@ from .scala_magic import ScalaMagic
 
 
 class MetaKernelScala(MetaKernel):
-    implementation = 'SparkScala Jupyter'
+    implementation = 'spylon-kernel'
     implementation_version = '1.0'
     language = 'scala'
     language_version = '0.1'
-    banner = "MetaKernel Scala - evaluates Scala statements and expressions."
+    banner = "spylon-kernel - evaluates Scala statements and expressions."
     language_info = {
         'mimetype': 'text/x-scala',
         'name': 'scala',
@@ -24,8 +24,8 @@ class MetaKernelScala(MetaKernel):
     }
     kernel_json = {
         "argv": [
-            sys.executable, "-m", "metakernel_scalaspark", "-f", "{connection_file}"],
-        "display_name": "MetaKernel Scala Spark",
+            sys.executable, "-m", "spylon_kernel", "-f", "{connection_file}"],
+        "display_name": "spylon-kernel",
         "env": {
             "SPARK_SUBMIT_OPTS": "-Dscala.usejavacp=true",
             "PYTHONUNBUFFERED": "1",
@@ -44,7 +44,7 @@ class MetaKernelScala(MetaKernel):
         return self.line_magics['python']
 
     def get_usage(self):
-        return ("This is MetaKernel Scala Spark. It implements a Scala interpreter.")
+        return ("This is spylon-kernel. It implements a Scala interpreter.")
 
     def set_variable(self, name, value):
         """

@@ -1,6 +1,6 @@
 import spylon.spark
 from metakernel import Magic
-from metakernel_scalaspark._scala_interpreter import init_spark_session
+from spylon_kernel._scala_interpreter import init_spark_session
 
 try:
     import jedi
