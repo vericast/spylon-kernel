@@ -1,4 +1,4 @@
-from spylon_kernel import MetaKernelScala
+from spylon_kernel import SpylonKernel
 
 if __name__ == '__main__':
-    MetaKernelScala.run_as_main()
+    SpylonKernel.run_as_main()

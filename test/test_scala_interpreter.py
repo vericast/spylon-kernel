@@ -21,6 +21,17 @@ def test_completion(scala_kernel):
     assert result == ['toLong']
 
 
+def test_iscomplete(scala_kernel):
+    result = scala_kernel.is_complete('val foo = 99')
+    assert result == 'complete'
+
+    result = scala_kernel.is_complete('val foo = {99')
+    assert result == 'incomplete'
+
+    result = scala_kernel.is_complete('val foo {99')
+    assert result == 'invalid'
+
+
 # def test_interpreter_help(scala_kernel):
 #     scala_kernel.interpret("val z = 5")
 #     print(scala_kernel.jiloop.getClass().toString())

@@ -13,7 +13,7 @@ env:
 install:
   - pip install -r requirements.txt
   - pip install .
-  - pip install codecov coverage
+  - pip install codecov coverage jupyter_kernel_test
 script:
   - coverage run run_tests.py -vrsx --capture=sys --color=yes
   - coverage report -m

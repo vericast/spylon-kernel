@@ -213,8 +213,16 @@ class _SparkILoopWrapper(object):
 
     def is_complete(self, code):
         try:
-            res = self.jiloop.parse.apply(code)
+            res = self.jiloop.parse().apply(code)
             # TODO: Finish this up.
+            output_class = res.getClass().getName()
+            _, status = output_class.rsplit("$", 1)
+            if status == 'Success':
+                return 'complete'
+            elif status == 'Incomplete':
+                return 'incomplete'
+            else:
+                return 'invalid'
 
         finally:
             self.jbyteout.reset()
