@@ -1,5 +1,5 @@
 [run]
-source = metakernel_scalaspark
+source = spylon_kernel
 
 [report]
 omit =

@@ -36,7 +36,7 @@ class SpylonKernel(MetaKernel):
     }
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(SpylonKernel, self).__init__(*args, **kwargs)
         self.register_magics(ScalaMagic)
         self.register_magics(InitSparkMagic)
 
