@@ -168,16 +168,16 @@ class _SparkILoopWrapper(object):
     def interpret(self, code, synthetic=False):
         try:
             res = self.jiloop.interpret(code, synthetic)
-            pyres = self.jbyteout.toByteArray()
+            pyres = self.jbyteout.toByteArray().decode("utf-8")
 
-            result = res.toString().encode("utf-8")
+            result = res.toString()
             if result == "Success":
                 return pyres
             elif result == 'Error':
                 raise ScalaException(pyres)
             elif result == 'Incomplete':
                 raise ScalaException(pyres)
-            return pyres.decode("utf-8")
+            return pyres
         finally:
             self.jbyteout.reset()
 

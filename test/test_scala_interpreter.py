@@ -6,6 +6,8 @@ from spylon_kernel._scala_interpreter import initialize_scala_kernel
 @pytest.fixture(scope="module")
 def scala_kernel(request):
     wrapper = initialize_scala_kernel()
+
+
     return wrapper
 
 

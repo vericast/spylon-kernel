@@ -4,6 +4,8 @@ import os
 from metakernel import Magic
 from metakernel import MetaKernel
 from metakernel import option
+from metakernel.process_metakernel import TextOutput
+
 from ._scala_interpreter import get_scala_interpreter, ScalaException
 from . import _scala_interpreter
 
@@ -133,22 +135,6 @@ class ScalaMagic(Magic):
         code = intp.complete(info['help_obj'], len(info['help_obj']))
         self.kernel.log.critical(code)
         return '\n'.join(code)
-
-
-class TextOutput(object):
-    """Wrapper for text output whose repr is the text itself.
-
-    This avoids the repr(output) quoting our output strings.
-
-    Notes
-    -----
-    Adapted from eclairjs-kernel
-    """
-    def __init__(self, output):
-        self.output = output
-
-    def __repr__(self):
-        return self.output
 
 
 def register_magics(kernel):
