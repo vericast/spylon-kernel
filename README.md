@@ -16,7 +16,7 @@ pip install .
 To install the jupyter kernel install it using
 
 ```
-python -m metakernel_scalaspark install
+python -m spylon_kernel install
 ```
 
 ## Using the kernel
