@@ -19,7 +19,7 @@ script:
   # Delete the jupyter kernel test when testing with py27, since it relies on features from unittest only present
   # in python 3
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-        del test_spylon_kernel_jkt.py;
+        rm test_spylon_kernel_jkt.py;
     fi
   - coverage run run_tests.py -vrsx --capture=sys --color=yes
   - coverage report -m
