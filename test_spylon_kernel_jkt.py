@@ -4,7 +4,9 @@ import unittest
 import jupyter_kernel_test
 import os
 
-os.environ["COVERAGE_PROCESS_START"] = "1"
+
+coverage_rc = os.path.abspath(os.path.join(os.path.dirname(__file__), ".coveragerc"))
+os.environ["COVERAGE_PROCESS_START"] = coverage_rc
 
 
 class SpylonKernelTests(jupyter_kernel_test.KernelTests):
