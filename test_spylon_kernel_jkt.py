@@ -4,6 +4,8 @@ import unittest
 import jupyter_kernel_test
 import os
 
+os.environ["COVERAGE_PROCESS_START"] = True
+
 
 class SpylonKernelTests(jupyter_kernel_test.KernelTests):
     kernel_name = "spylon-kernel"
