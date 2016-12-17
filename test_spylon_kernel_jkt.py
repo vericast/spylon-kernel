@@ -4,7 +4,7 @@ import unittest
 import jupyter_kernel_test
 import os
 
-os.environ["COVERAGE_PROCESS_START"] = True
+os.environ["COVERAGE_PROCESS_START"] = "1"
 
 
 class SpylonKernelTests(jupyter_kernel_test.KernelTests):
