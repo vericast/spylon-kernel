@@ -124,16 +124,16 @@ class ScalaMagic(Magic):
         offset = trim(prefix, c)
 
         a = [prefix + h[offset:] for h in c]
-        self.kernel.log.critical("info %s\n    completions %s\n     final %s", info, c, a)
+        self.kernel.log.debug("info %s\n    completions %s\n     final %s", info, c, a)
         return a
 
     def get_help_on(self, info, level=0, none_on_fail=False):
         intp = self._get_scala_interpreter()
-        self.kernel.log.critical(info['help_obj'])
+        self.kernel.log.debug(info['help_obj'])
         # Calling this twice produces different output
         code = intp.complete(info['help_obj'], len(info['help_obj']))
         code = intp.complete(info['help_obj'], len(info['help_obj']))
-        self.kernel.log.critical(code)
+        self.kernel.log.debug(code)
         return '\n'.join(code)
 
 

@@ -65,18 +65,22 @@ def test_help(scala_kernel):
     assert h == "Int"
     assert h1 == "Foo"
     assert h2 == "String"
-#
-# print(wrapper.interpret("4 + 4"))
-# print(wrapper.interpret("val x = 4"))
-# print(wrapper.complete('x.toL', 5))
-# print(wrapper.interpret("x * 2"))
 
 
+def test_spark_rdd(scala_kernel):
+    """Simple test to ensure we can do RDD things"""
+    result = scala_kernel.interpret("sc.parallelize(0 until 10).sum().toInt")
+    assert result.strip().endswith(str(sum(range(10))))
 
 
-# wrapper = initialize_scala_kernel()
-#
-# print(wrapper.interpret("4 + 4"))
-# print(wrapper.interpret("val x = 4"))
-# print(wrapper.complete('x.toL', 5))
-# print(wrapper.interpret("x * 2"))
+def test_spark_dataset(scala_kernel):
+    scala_kernel.interpret("""
+    case class DatasetTest(y: Int)
+    import spark.implicits._
+    val df = spark.createDataset((0 until 10).map(DatasetTest(_)))
+    import org.apache.spark.sql.functions.sum
+    val res = df.agg(sum('y)).collect().head
+    """)
+    strres = scala_kernel.interpret("res.getLong(0)")
+    result = scala_kernel.last_result()
+    assert result == sum(range(10))

@@ -41,20 +41,6 @@ def initialize_scala_kernel():
 
     jprintWriter = io.PrintWriter(bytes_out, True)
 
-    """
-    val jars = Utils.getUserJars(conf, isShell=true).mkString(File.pathSeparator)
-    val interpArguments = List(
-        "-Yrepl-class-based",
-        "-Yrepl-outdir", s
-    "${outputDir.getAbsolutePath}",
-    "-classpath", jars
-    ) ++ args.toList
-
-    val
-    settings = new GenericRunnerSettings(scalaOptionError)
-    settings.processArguments(interpArguments, true)
-    """
-
     execUri = jvm.System.getenv("SPARK_EXECUTOR_URI")
     jconf.setIfMissing("spark.app.name", "Spark shell")
     # // SparkContext will detect this configuration and register it with the RpcEnv's
@@ -82,22 +68,22 @@ def initialize_scala_kernel():
     )
 
 
-    # settings = jvm. scala.tools.nsc.GenericRunnerSettings()
     settings = jvm.scala.tools.nsc.Settings()
     settings.processArguments(interpArguments, True)
 
-    # start the interpreter
-    # getattr(iloop, "settings_$eq")(settings)
+    # Since we have already instantiated our spark context on the python side, set it in the Main repl class as well
+    Main = jvm.org.apache.spark.repl.Main
+    jspark_session = spark_session._jsparkSession
+    # equivalent to Main.sparkSession = jspark_session
+    getattr(Main, "sparkSession_$eq")(jspark_session)
+    getattr(Main, "sparkContext_$eq")(jspark_session.sparkContext())
 
     def start_imain():
         intp = jvm.scala.tools.nsc.interpreter.IMain(settings, jprintWriter)
         intp.initializeSynchronous()
-        # TODO:
-
-
+        # TODO : Redirect stdout / stderr to a known pair of files that we can watch.
         """
         System.setOut(new PrintStream(new File("output-file.txt")));
-
         """
 
         # Copied directly from Spark
@@ -148,7 +134,7 @@ def _scala_seq_to_py(jseq):
 class ScalaException(Exception):
 
     def __init__(self, scala_message, *args, **kwargs):
-        super(ScalaException, self).__init__(*args, **kwargs)
+        super(ScalaException, self).__init__(scala_message, *args, **kwargs)
         self.scala_message = scala_message
 
 
@@ -161,7 +147,6 @@ class _SparkILoopWrapper(object):
 
         interpreterPkg = getattr(getattr(self.jvm.scala.tools.nsc.interpreter, 'package$'), "MODULE$")
         # = spark_jvm_helpers.import_scala_package_object("scala.tools.nsc.interpreter")
-        dir(interpreterPkg)
         self.iMainOps = interpreterPkg.IMainOps(jiloop)
         self.jbyteout = jbyteout
 
@@ -169,7 +154,8 @@ class _SparkILoopWrapper(object):
         try:
             res = self.jiloop.interpret(code, synthetic)
             pyres = self.jbyteout.toByteArray().decode("utf-8")
-
+            # The scala interpreter returns a sentinel case class member here which is typically matched via
+            # pattern matching.  Due to it having a very long namespace, we just resort to simple string matching here.
             result = res.toString()
             if result == "Success":
                 return pyres
@@ -182,6 +168,7 @@ class _SparkILoopWrapper(object):
             self.jbyteout.reset()
 
     def last_result(self):
+        # TODO : when evaluating multiline expressions this returns the first result
         lr = self.jiloop.lastRequest()
         res = lr.lineRep().call("$result", spark_jvm_helpers.to_scala_list([]))
         return res
@@ -207,14 +194,12 @@ class _SparkILoopWrapper(object):
         List[str]
         """
         c = self.jcompleter
-        print(dir(self.jcompleter))
         jres = c.complete(code, pos)
         return list(_scala_seq_to_py(jres.candidates()))
 
     def is_complete(self, code):
         try:
             res = self.jiloop.parse().apply(code)
-            # TODO: Finish this up.
             output_class = res.getClass().getName()
             _, status = output_class.rsplit("$", 1)
             if status == 'Success':
@@ -236,8 +221,6 @@ class _SparkILoopWrapper(object):
         assert len(scala_type) == 2
         # TODO: Given that we have a type here we can interpret some java class reflection to see if we can get some
         #       better results for the function in question
-
-
         return scala_type[-1]
 
     def printHelp(self):
