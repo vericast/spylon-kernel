@@ -16,6 +16,8 @@ class ScalaMagic(Magic):
         super(ScalaMagic, self).__init__(kernel)
         self.retval = None
         self._interp = None
+        # internal use function for running some functions after the interpreter is started up
+        self._after_start_interpreter = []
 
     def _get_scala_interpreter(self):
         if self._interp is None:
@@ -26,6 +28,8 @@ class ScalaMagic(Magic):
             # Ensure that spark is available in the python session as well.
             self.kernel.cell_magics['python'].env['spark'] = _scala_interpreter.spark_session
             # self.Display("Registered spark session in scala and python context as `spark`")
+            for fn in self._after_start_interpreter:
+                fn()
         return self._interp
 
     def line_scala(self, *args):
@@ -50,7 +54,8 @@ class ScalaMagic(Magic):
                 self.res = intp.last_result()
                 return self.res
             else:
-                return TextOutput(res)
+                if res:
+                    return TextOutput(res)
         except ScalaException as e:
             return self.kernel.Error(e.scala_message)
 

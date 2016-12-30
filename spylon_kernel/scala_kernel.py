@@ -4,6 +4,11 @@ import sys
 from metakernel import MetaKernel
 from .init_spark_magic import InitSparkMagic
 from .scala_magic import ScalaMagic
+from tempfile import mkdtemp
+import shutil
+import os
+import threading
+import time
 
 
 class SpylonKernel(MetaKernel):
@@ -39,6 +44,13 @@ class SpylonKernel(MetaKernel):
         super(SpylonKernel, self).__init__(*args, **kwargs)
         self.register_magics(ScalaMagic)
         self.register_magics(InitSparkMagic)
+        self.tempdir = mkdtemp()
+        magic = self.line_magics['scala']
+        assert isinstance(magic, ScalaMagic)
+        magic._after_start_interpreter.append(self._initialize_pipes)
+
+    def __del__(self):
+        shutil.rmtree(self.tempdir, ignore_errors=True)
 
     @property
     def pythonmagic(self):
@@ -105,7 +117,40 @@ class SpylonKernel(MetaKernel):
         # TODO: Better indent
         return {'status': status, 'indent': ' ' * 4 if status == 'incomplete' else ''}
 
+    def _initialize_pipes(self):
+        STDOUT = os.path.abspath(os.path.join(self.tempdir, 'stdout'))
+        STDERR = os.path.abspath(os.path.join(self.tempdir, 'stderr'))
 
+
+        def monitor_pipe(filename, fn):
+            fd = open(filename, 'r')
+            while True:
+                line = fd.readline()
+                if line:
+                    fn(line)
+                else:
+                    time.sleep(0.1)
+            self.log.critical("TERMINATING MONITOR")
+
+        # Start up the pipes on the JVM side
+        magic = self.line_magics['scala']
+
+        self.log.critical("Before Java redirected")
+        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File("{filename}"), true)))'
+        code = '\n'.join([
+            'import java.io.{PrintStream, FileOutputStream, File}',
+            'import scala.Console',
+            code.format(pipe="Out", filename=STDOUT),
+            code.format(pipe="Err", filename=STDERR)
+        ])
+        o = magic.eval(code, raw=True)
+        self.log.critical("Console redirected")
+
+        self.STDOUT_thread = threading.Thread(target=monitor_pipe, args=(STDOUT, self.Write))
+        self.STDERR_thread = threading.Thread(target=monitor_pipe, args=(STDERR, self.Error))
+
+        self.STDOUT_thread.start()
+        self.STDERR_thread.start()
 #TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
 
 # localhost:PORT/output
