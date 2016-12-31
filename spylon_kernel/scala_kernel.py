@@ -47,9 +47,11 @@ class SpylonKernel(MetaKernel):
         self.register_magics(ScalaMagic)
         self.register_magics(InitSparkMagic)
         self.tempdir = mkdtemp()
+        self._is_complete_ready = False
         magic = self.line_magics['scala']
         assert isinstance(magic, ScalaMagic)
         magic._after_start_interpreter.append(self._initialize_pipes)
+        magic._after_start_interpreter.append(lambda: setattr(self, "_is_complete_ready", True))
 
     def __del__(self):
         shutil.rmtree(self.tempdir, ignore_errors=True)
@@ -105,12 +107,14 @@ class SpylonKernel(MetaKernel):
             return {'status' : 'incomplete',
                     'indent': ' ' * 4}
         """
-        if code.startswith(self.magic_prefixes['magic']):
+        if code.startswith(self.magic_prefixes['magic']) or not self._is_complete_ready:
             ## force requirement to end with an empty line
             if code.endswith("\n"):
                 return {'status' : 'complete', 'indent': ''}
             else:
                 return {'status' : 'incomplete', 'indent': ''}
+        # The scala interpreter can take a while to be alive, only use the fancy method when we dont need to lazily
+        # instantiate the interpreter
         # otherwise, how to know is complete?
         magic = self.line_magics['scala']
         assert isinstance(magic, ScalaMagic)
@@ -122,8 +126,6 @@ class SpylonKernel(MetaKernel):
     def _initialize_pipes(self):
         STDOUT = os.path.abspath(os.path.join(self.tempdir, 'stdout'))
         STDERR = os.path.abspath(os.path.join(self.tempdir, 'stderr'))
-
-
         # Start up the pipes on the JVM side
         magic = self.line_magics['scala']
 
@@ -171,7 +173,7 @@ def _monitor_pipe(filename, weak_ref, method_name):
         del self
     print("Shutting down thread")
 
-#TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
+# TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
 
 # localhost:PORT/output
 # {
