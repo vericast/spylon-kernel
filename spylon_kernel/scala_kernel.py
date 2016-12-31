@@ -1,7 +1,6 @@
 from __future__ import absolute_import, print_function, division
 
 import sys
-import weakref
 
 from metakernel import MetaKernel
 from .init_spark_magic import InitSparkMagic
@@ -9,8 +8,8 @@ from .scala_magic import ScalaMagic
 from tempfile import mkdtemp
 import shutil
 import os
-import threading
-import time
+from tornado import ioloop
+from tornado import gen
 
 
 class SpylonKernel(MetaKernel):
@@ -140,38 +139,32 @@ class SpylonKernel(MetaKernel):
         o = magic.eval(code, raw=True)
         self.log.critical("Console redirected")
 
-        start_watcher_thread(STDOUT, self, "Write")
-        start_watcher_thread(STDERR, self, "Error")
+        ioloop.IOLoop.current().spawn_callback(self._poll_file, STDOUT, self.Write)
+        ioloop.IOLoop.current().spawn_callback(self._poll_file, STDERR, self.Error)
+
+    @gen.coroutine
+    def _poll_file(self, filename, fn):
+        """
+
+        Parameters
+        ----------
+        filename : str
+        fn : (str) -> None
+            Function to deal with string output.
+        """
+        fd = open(filename, 'r')
+        while True:
+            line = fd.readline()
+            if line:
+                self.log.critical("READ LINE from %s, %s", type(line))
+                self.log.critical("READ LINE from %s, %s", filename, line)
+                fn(line)
+                self.log.critical("AFTER PUSH")
+                yield gen.sleep(0)
+            else:
+                yield gen.sleep(0.01)
 
 
-def start_watcher_thread(filename, self, method):
-    t = threading.Thread(target=_monitor_pipe, args=(filename, weakref.ref(self), method))
-    t.daemon = True
-    t.start()
-
-
-def _monitor_pipe(filename, weak_ref, method_name):
-    """
-
-    Parameters
-    ----------
-    filename : str
-    weak_fn : weakref.ref
-        Weakref to a function pointer.
-    """
-    fd = open(filename, 'r')
-    while True:
-        self = weak_ref()
-        if self is None:
-            break
-        fn = getattr(self, method_name)
-        line = fd.readline()
-        if line:
-            fn(line)
-        else:
-            time.sleep(0.1)
-        del self
-    print("Shutting down thread")
 
 # TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
 
