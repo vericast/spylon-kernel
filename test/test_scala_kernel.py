@@ -1,6 +1,6 @@
 import pytest
 from spylon_kernel import SpylonKernel
-
+import re
 
 class MockingSpylonKernel(SpylonKernel):
 
@@ -24,7 +24,7 @@ def spylon_kernel(request):
 def test_simple_expression(spylon_kernel):
     assert isinstance(spylon_kernel, MockingSpylonKernel)
     result = spylon_kernel.do_execute_direct("4 + 4")
-    assert result.output == 'res0: Int = 8\n'
+    assert re.match('res\d+: Int = 8\n', result.output)
 
 
 def test_exception(spylon_kernel):

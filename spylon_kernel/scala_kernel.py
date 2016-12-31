@@ -1,6 +1,8 @@
 from __future__ import absolute_import, print_function, division
 
 import sys
+import weakref
+
 from metakernel import MetaKernel
 from .init_spark_magic import InitSparkMagic
 from .scala_magic import ScalaMagic
@@ -122,16 +124,6 @@ class SpylonKernel(MetaKernel):
         STDERR = os.path.abspath(os.path.join(self.tempdir, 'stderr'))
 
 
-        def monitor_pipe(filename, fn):
-            fd = open(filename, 'r')
-            while True:
-                line = fd.readline()
-                if line:
-                    fn(line)
-                else:
-                    time.sleep(0.1)
-            self.log.critical("TERMINATING MONITOR")
-
         # Start up the pipes on the JVM side
         magic = self.line_magics['scala']
 
@@ -146,11 +138,39 @@ class SpylonKernel(MetaKernel):
         o = magic.eval(code, raw=True)
         self.log.critical("Console redirected")
 
-        self.STDOUT_thread = threading.Thread(target=monitor_pipe, args=(STDOUT, self.Write))
-        self.STDERR_thread = threading.Thread(target=monitor_pipe, args=(STDERR, self.Error))
+        start_watcher_thread(STDOUT, self, "Write")
+        start_watcher_thread(STDERR, self, "Error")
 
-        self.STDOUT_thread.start()
-        self.STDERR_thread.start()
+
+def start_watcher_thread(filename, self, method):
+    t = threading.Thread(target=_monitor_pipe, args=(filename, weakref.ref(self), method))
+    t.daemon = True
+    t.start()
+
+
+def _monitor_pipe(filename, weak_ref, method_name):
+    """
+
+    Parameters
+    ----------
+    filename : str
+    weak_fn : weakref.ref
+        Weakref to a function pointer.
+    """
+    fd = open(filename, 'r')
+    while True:
+        self = weak_ref()
+        if self is None:
+            break
+        fn = getattr(self, method_name)
+        line = fd.readline()
+        if line:
+            fn(line)
+        else:
+            time.sleep(0.1)
+        del self
+    print("Shutting down thread")
+
 #TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
 
 # localhost:PORT/output

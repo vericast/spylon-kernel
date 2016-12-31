@@ -11,6 +11,8 @@ scala_intp = None
 
 
 def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
+    # Ensure we have the correct classpath settings for the repl to work.
+    os.environ.setdefault('SPARK_SUBMIT_OPTS', '-Dscala.usejavacp=true')
     global spark_session
     if conf is None:
         conf = spylon.spark.launcher.SparkConfiguration()

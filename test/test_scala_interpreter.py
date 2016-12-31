@@ -1,5 +1,5 @@
 import pytest
-
+import re
 from spylon_kernel._scala_interpreter import initialize_scala_kernel
 
 
@@ -13,7 +13,7 @@ def scala_kernel(request):
 
 def test_simple_expression(scala_kernel):
     result = scala_kernel.interpret("4 + 4")
-    assert result == 'res0: Int = 8\n'
+    assert re.match('res\d+: Int = 8\n', result)
 
 
 def test_completion(scala_kernel):
