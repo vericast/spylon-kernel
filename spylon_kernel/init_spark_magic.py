@@ -26,7 +26,7 @@ class InitSparkMagic(Magic):
             %%init_spark
             launcher.jars = ["file://some/jar.jar"]
             launcher.master = "local[4]"
-            launcher.conf.spar.executor.cores = 8
+            launcher.conf.spark.executor.cores = 8
 
         This will evaluate the launcher args using spylon.
         """
@@ -38,6 +38,7 @@ class InitSparkMagic(Magic):
         exec(self.code, globals_dict)
         conf = globals_dict['launcher']
         init_spark_session(conf)
+        self.evaluate = False
 
     def get_completions(self, info):
         '''Get Python completions'''
