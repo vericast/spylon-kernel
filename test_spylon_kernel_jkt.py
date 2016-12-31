@@ -19,16 +19,17 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
     ]
     code_page_something = "x?"
 
-    # TODO: These are disabled for now since the eventloop that runs for the interpreter blocks.
-    #       They work decently well for notebooks though.
+    code_hello_world = '''
+        println("hello, world")
+        // Sleep for a bit since the process for getting text output is asynchronous
+        Thread.sleep(1000)
+        '''
 
-    # code_hello_world = '''
-    #     println("hello, world")
-    #     '''
-    #
-    # code_stderr = '''
-    #     Console.err.println("Error")
-    #     '''
+    code_stderr = '''
+        Console.err.println("Error")
+        // Sleep for a bit since the process for getting text output is asynchronous
+        Thread.sleep(1000)
+        '''
 
     complete_code_samples = ['val y = 8']
     incomplete_code_samples = ['{ val foo = 9 ']

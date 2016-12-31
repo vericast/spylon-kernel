@@ -4,6 +4,10 @@ import shutil
 import signal
 import tempfile
 import spylon.spark
+from tornado import gen
+from tornado.concurrent import Future, run_on_executor
+from tornado.platform.asyncio import to_tornado_future
+from concurrent.futures import ThreadPoolExecutor
 
 spark_session = None
 spark_jvm_helpers = None
@@ -142,6 +146,8 @@ class ScalaException(Exception):
 
 class _SparkILoopWrapper(object):
 
+    executor = ThreadPoolExecutor(4)
+
     def __init__(self, jvm, jiloop, jbyteout):
         self._jcompleter = None
         self.jvm = jvm
@@ -230,6 +236,14 @@ class _SparkILoopWrapper(object):
 
 
 def get_scala_interpreter():
+    """Get the scala interpreter instance.
+
+    If the instance has not yet been created, create it.
+
+    Returns
+    -------
+    scala_intp : _SparkILoopWrapper
+    """
     global scala_intp
     if scala_intp is None:
         scala_intp = initialize_scala_kernel()

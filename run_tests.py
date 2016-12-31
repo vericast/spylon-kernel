@@ -4,7 +4,7 @@ import pytest
 
 if __name__ == '__main__':
     # show output results from every test function
-    args = ['-v']
+    args = ['-vv']
     # show the message output for skipped and expected failure tests
     args.append('-rxs')
     args.append('--capture=sys')

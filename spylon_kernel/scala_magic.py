@@ -20,6 +20,12 @@ class ScalaMagic(Magic):
         self._after_start_interpreter = []
 
     def _get_scala_interpreter(self):
+        """
+
+        Returns
+        -------
+        scala_intp : _scala_interpreter._SparkILoopWrapper
+        """
         if self._interp is None:
             assert isinstance(self.kernel, MetaKernel)
             self.kernel.Display("Intitializing scala interpreter....")

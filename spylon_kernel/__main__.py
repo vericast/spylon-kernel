@@ -1,4 +1,7 @@
+from tornado.ioloop import IOLoop
+
 from spylon_kernel import SpylonKernel
+import sys
 
 if __name__ == '__main__':
 
@@ -9,4 +12,5 @@ if __name__ == '__main__':
     except ImportError:
         pass
 
+    IOLoop.configure("tornado.platform.asyncio.AsyncIOLoop")
     SpylonKernel.run_as_main()
