@@ -39,6 +39,7 @@ class InitSparkMagic(Magic):
         conf = globals_dict['launcher']
         init_spark_session(conf)
         self.evaluate = False
+        self.kernel.Display()
 
     def get_completions(self, info):
         '''Get Python completions'''

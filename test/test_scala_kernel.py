@@ -1,6 +1,7 @@
 import pytest
 from spylon_kernel import SpylonKernel
 import re
+from textwrap import dedent
 
 class MockingSpylonKernel(SpylonKernel):
 
@@ -64,3 +65,19 @@ def test_help(spylon_kernel):
     spylon_kernel.do_execute_direct("val x = 4")
     h = spylon_kernel.get_help_on("x")
     assert h.strip() == 'val x: Int'
+
+
+def test_init_magic(spylon_kernel):
+    code = dedent("""\
+        %%init_spark
+        launcher.conf.spark.executor.cores = 2
+        """)
+    spylon_kernel.do_execute(code)
+
+
+def test_init_magic_completion(spylon_kernel):
+    code = dedent("""\
+        %%init_spark
+        launcher.conf.spark.executor.cor""")
+    result = spylon_kernel.do_complete(code, len(code))
+    assert set(result['matches']) == {'launcher.conf.spark.executor.cores'}

@@ -3,6 +3,7 @@
 import unittest
 import jupyter_kernel_test
 import os
+from textwrap import dedent
 
 
 coverage_rc = os.path.abspath(os.path.join(os.path.dirname(__file__), ".coveragerc"))

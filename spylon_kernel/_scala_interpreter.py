@@ -18,6 +18,9 @@ def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
     # Ensure we have the correct classpath settings for the repl to work.
     os.environ.setdefault('SPARK_SUBMIT_OPTS', '-Dscala.usejavacp=true')
     global spark_session
+    # If we have already initialized a spark session. Don't carry on.
+    if spark_session:
+        return
     if conf is None:
         conf = spylon.spark.launcher.SparkConfiguration()
     spark_context = conf.spark_context(application_name)
@@ -26,8 +29,6 @@ def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
     from spylon.spark.utils import SparkJVMHelpers
     global spark_jvm_helpers
     spark_jvm_helpers = SparkJVMHelpers(spark_session._sc)
-    # TODO : Capturing the STDERR / STDOUT from the java process requires us to hook in with gdb and duplicate the pipes
-    #        This is not particularly pretty
 
 
 def initialize_scala_kernel():

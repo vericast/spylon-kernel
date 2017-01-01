@@ -203,6 +203,10 @@ class SpylonKernel(MetaKernel):
 
     @gen.coroutine
     def _loop_alive(self):
+        """This is a little hack to ensure that during the tornado eventloop we also run one iteration of the asyncio
+        eventloop.
+
+        """
         loop = asyncio.get_event_loop()
         while True:
             loop.call_soon(loop.stop)
