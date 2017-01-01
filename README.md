@@ -7,6 +7,8 @@ kernel for scala.
 
 ## Installation
 
+On python 3.5+
+
 ```bash
 pip install .
 ```
