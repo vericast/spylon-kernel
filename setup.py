@@ -17,9 +17,9 @@ setup(
     requirements=['spylon', 'metakernel'],
     packages=list(find_packages()),
     author='Marius van Niekerk',
-    author_email='marius.v.niekerk+spylon@gmail.com'
+    author_email='marius.v.niekerk+spylon@gmail.com',
     maintainer='Marius van Niekerk',
-    author_email='marius.v.niekerk+spylon@gmail.com'
+    author_email='marius.v.niekerk+spylon@gmail.com',
     license="MIT",
     classifiers=[
         'Intended Audience :: Developers',
