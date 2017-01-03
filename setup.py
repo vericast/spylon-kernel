@@ -19,7 +19,7 @@ setup(
     author='Marius van Niekerk',
     author_email='marius.v.niekerk+spylon@gmail.com',
     maintainer='Marius van Niekerk',
-    author_email='marius.v.niekerk+spylon@gmail.com',
+    maintainer_email='marius.v.niekerk+spylon@gmail.com',
     license="MIT",
     classifiers=[
         'Intended Audience :: Developers',
