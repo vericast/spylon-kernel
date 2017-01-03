@@ -21,4 +21,12 @@ setup(
     maintainer='Marius van Niekerk',
     author_email='marius.v.niekerk+spylon@gmail.com'
     license="MIT",
+    classifiers=[
+        'Intended Audience :: Developers',
+        'Intended Audience :: System Administrators',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python',
+        'Programming Language :: Scala'
+    ],
 )
