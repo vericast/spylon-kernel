@@ -32,6 +32,13 @@ def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
 
 
 def initialize_scala_kernel():
+    """
+    Instantiates the scala interpreter via py4j and pyspar.
+
+    Returns
+    -------
+    _SparkILoopWrapper
+    """
     if spark_session is None:
         init_spark_session()
 
@@ -50,11 +57,11 @@ def initialize_scala_kernel():
 
     execUri = jvm.System.getenv("SPARK_EXECUTOR_URI")
     jconf.setIfMissing("spark.app.name", "Spark shell")
-    # // SparkContext will detect this configuration and register it with the RpcEnv's
-    # // file server, setting spark.repl.class.uri to the actual URI for executors to
-    # // use. This is sort of ugly but since executors are started as part of SparkContext
-    # // initialization in certain cases, there's an initialization order issue that prevents
-    # // this from being set after SparkContext is instantiated.
+    # SparkContext will detect this configuration and register it with the RpcEnv's
+    # file server, setting spark.repl.class.uri to the actual URI for executors to
+    # use. This is sort of ugly but since executors are started as part of SparkContext
+    # initialization in certain cases, there's an initialization order issue that prevents
+    # this from being set after SparkContext is instantiated.
 
     output_dir = os.path.abspath(tempfile.mkdtemp())
     def cleanup():
@@ -66,14 +73,12 @@ def initialize_scala_kernel():
     if (execUri is not None):
       jconf.set("spark.executor.uri", execUri)
 
-
     jars = jvm.org.apache.spark.util.Utils.getUserJars(jconf, True).mkString(":")
     interpArguments = spark_jvm_helpers.to_scala_list(
         ["-Yrepl-class-based", "-Yrepl-outdir", output_dir,
          "-classpath", jars
          ]
     )
-
 
     settings = jvm.scala.tools.nsc.Settings()
     settings.processArguments(interpArguments, True)

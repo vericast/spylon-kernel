@@ -1,0 +1,4 @@
+pytest
+codecov
+coverage
+jupyter_kernel_test

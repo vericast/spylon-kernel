@@ -40,10 +40,10 @@ class ScalaMagic(Magic):
 
     def line_scala(self, *args):
         """
-        %python CODE - evaluate code as Python
+        %scala CODE - evaluate code as Scala
         This line magic will evaluate the CODE (either expression or
-        statement) as Python code.
-        Note that the version of Python is that of the notebook server.
+        statement) as Scala code.
+
         Examples:
             %scala val x = 42
             %scala import scala.math
