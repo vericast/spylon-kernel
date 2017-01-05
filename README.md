@@ -49,3 +49,38 @@ df = spark.read.json("examples/src/main/resources/people.json")
 ```
 
 To get completions for python, make sure that you have installed `jedi`
+
+## Using as a magic
+
+Spylon-kernel can be used as a magic in an existing ipykernel.  This is the recommended solution when you want to write
+relatively small blocks of scala.
+
+```python
+from spylon_kernel import register_ipython_magics
+register_ipython_magics()
+```
+
+```scala
+%%scala
+val x = 8
+x
+```
+
+## Using as a library
+
+If you just want to send a string of scala code to the interpreter and evaluate it you can
+do that too.
+
+```python
+from spylon_kernel import get_scala_interpreter
+
+interp = get_scala_interpreter()
+
+# Evaluate the result of a scala code block.
+interp.interpret("""
+    val x = 8
+    x
+    """)
+
+interp.last_result()
+```

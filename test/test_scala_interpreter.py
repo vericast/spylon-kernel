@@ -1,11 +1,11 @@
 import pytest
 import re
-from spylon_kernel._scala_interpreter import initialize_scala_kernel
+from spylon_kernel._scala_interpreter import initialize_scala_interpreter
 
 
 @pytest.fixture(scope="module")
 def scala_kernel(request):
-    wrapper = initialize_scala_kernel()
+    wrapper = initialize_scala_interpreter()
 
 
     return wrapper

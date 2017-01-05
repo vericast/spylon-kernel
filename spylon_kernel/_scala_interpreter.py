@@ -31,13 +31,13 @@ def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
     spark_jvm_helpers = SparkJVMHelpers(spark_session._sc)
 
 
-def initialize_scala_kernel():
+def initialize_scala_interpreter():
     """
     Instantiates the scala interpreter via py4j and pyspar.
 
     Returns
     -------
-    _SparkILoopWrapper
+    SparkInterpreter
     """
     if spark_session is None:
         init_spark_session()
@@ -64,6 +64,7 @@ def initialize_scala_kernel():
     # this from being set after SparkContext is instantiated.
 
     output_dir = os.path.abspath(tempfile.mkdtemp())
+
     def cleanup():
         shutil.rmtree(output_dir, True)
     atexit.register(cleanup)
@@ -134,7 +135,7 @@ def initialize_scala_kernel():
 
     imain = start_imain()
 
-    return _SparkILoopWrapper(jvm, imain, bytes_out)
+    return SparkInterpreter(jvm, imain, bytes_out)
 
 
 def _scala_seq_to_py(jseq):
@@ -150,7 +151,7 @@ class ScalaException(Exception):
         self.scala_message = scala_message
 
 
-class _SparkILoopWrapper(object):
+class SparkInterpreter(object):
 
     executor = ThreadPoolExecutor(4)
 
@@ -165,6 +166,20 @@ class _SparkILoopWrapper(object):
         self.jbyteout = jbyteout
 
     def interpret(self, code, synthetic=False):
+        """Interpret a block of scala code.
+
+        If you want to get the result as a python object, follow this will a call to `last_result()`
+
+        Parameters
+        ----------
+        code : str
+        synthetic : bool
+
+        Returns
+        -------
+        reploutput : str
+            String output from the scala REPL.
+        """
         try:
             res = self.jiloop.interpret(code, synthetic)
             pyres = self.jbyteout.toByteArray().decode("utf-8")
@@ -182,6 +197,15 @@ class _SparkILoopWrapper(object):
             self.jbyteout.reset()
 
     def last_result(self):
+        """Retrieves the jvm result object from the previous call to interpret.
+
+        If the result is a supported primitive type it is converted to a python object, otherwise it returns a py4j
+        view onto that object.
+
+        Returns
+        -------
+        object
+        """
         # TODO : when evaluating multiline expressions this returns the first result
         lr = self.jiloop.lastRequest()
         res = lr.lineRep().call("$result", spark_jvm_helpers.to_scala_list([]))
@@ -212,6 +236,17 @@ class _SparkILoopWrapper(object):
         return list(_scala_seq_to_py(jres.candidates()))
 
     def is_complete(self, code):
+        """Determine if a hunk of code is a complete block of scala.
+
+        Parameters
+        ----------
+        code : str
+
+        Returns
+        -------
+        str
+            One of 'complete', 'incomplete' or 'invalid'
+        """
         try:
             res = self.jiloop.parse().apply(code)
             output_class = res.getClass().getName()
@@ -227,6 +262,20 @@ class _SparkILoopWrapper(object):
             self.jbyteout.reset()
 
     def get_help_on(self, info):
+        """For a given symbol attempt to get some minor help on it in terms of function signature.
+
+        Due to the JVM having no runtime docstring information, the level of detail we can retrieve is rather limited.
+
+        Parameters
+        ----------
+        info : str
+            object name to try and get information for
+
+        Returns
+        -------
+        str
+
+        """
         code = info + '// typeAt {} {}'.format(0, len(info))
         scala_type = self.complete(code, len(code))
         # When using the // typeAt hint we will get back a list made by
@@ -248,10 +297,10 @@ def get_scala_interpreter():
 
     Returns
     -------
-    scala_intp : _SparkILoopWrapper
+    scala_intp : SparkInterpreter
     """
     global scala_intp
     if scala_intp is None:
-        scala_intp = initialize_scala_kernel()
+        scala_intp = initialize_scala_interpreter()
 
     return scala_intp

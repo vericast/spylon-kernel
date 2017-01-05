@@ -24,7 +24,7 @@ class ScalaMagic(Magic):
 
         Returns
         -------
-        scala_intp : _scala_interpreter._SparkILoopWrapper
+        scala_intp : _scala_interpreter.SparkInterpreter
         """
         if self._interp is None:
             assert isinstance(self.kernel, MetaKernel)
