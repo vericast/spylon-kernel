@@ -1,24 +1,21 @@
 from __future__ import absolute_import, print_function, division
 
+import asyncio
+import os
+import pathlib
+import shutil
 import sys
-
-
 import atexit
+from tempfile import mkdtemp
 from metakernel import MetaKernel
 from metakernel.process_metakernel import TextOutput
+
+from tornado import gen
+from tornado import ioloop
 
 from spylon_kernel._scala_interpreter import ScalaException
 from .init_spark_magic import InitSparkMagic
 from .scala_magic import ScalaMagic
-from tempfile import mkdtemp
-import shutil
-import os
-from tornado import ioloop
-from tornado import gen
-import tornado.concurrent
-from tornado.queues import Queue
-from tornado.platform.asyncio import to_asyncio_future
-import asyncio
 
 
 class SpylonKernel(MetaKernel):
@@ -73,7 +70,7 @@ class SpylonKernel(MetaKernel):
         return self.line_magics['python']
 
     def get_usage(self):
-        return ("This is spylon-kernel. It implements a Scala interpreter.")
+        return "This is spylon-kernel. It implements a Scala interpreter."
 
     def set_variable(self, name, value):
         """
@@ -94,8 +91,7 @@ class SpylonKernel(MetaKernel):
         loop = asyncio.get_event_loop()
         try:
             result = await loop.run_in_executor(intp.executor, intp.interpret, code)
-            # await to_asyncio_future(gen.sleep(0))
-            self.log.critical("DONE??")
+            self.log.debug("execute scala done")
             future.set_result(result)
         except Exception as e:
             future.set_exception(e)
@@ -107,36 +103,10 @@ class SpylonKernel(MetaKernel):
             fut = asyncio.Future()
             asyncio.ensure_future(self.execute_scala_async(code, fut))
             res = loop.run_until_complete(fut)
-
-
-            #self.log.critical("res, %s", res)
-            #assert type(res) == type(8)#
             if res:
                 return TextOutput(res)
         except ScalaException as e:
             return self.Error(e.scala_message)
-
-        #ioloop.IOLoop.instance().spawn_callback(self.execute_scala_async, code)
-        #
-        #
-        # flag = True
-        # res = None
-        #
-        # def callback(result):
-        #     nonlocal flag
-        #     nonlocal res
-        #     flag = False
-        #     res = result.result()
-        #
-        # ioloop.IOLoop.current().add_future(fut, callback=callback)
-        #
-        # while flag:
-        #     time.sleep(0.1)
-        # self.log.critical("Done, %s", res)
-        #
-        # return res
-
-        #return magic.eval(code.strip(), raw=False)
 
     def get_completions(self, info):
         magic = self.line_magics['scala']
@@ -165,11 +135,11 @@ class SpylonKernel(MetaKernel):
                     'indent': ' ' * 4}
         """
         if code.startswith(self.magic_prefixes['magic']) or not self._is_complete_ready:
-            ## force requirement to end with an empty line
+            # force requirement to end with an empty line
             if code.endswith("\n"):
-                return {'status' : 'complete', 'indent': ''}
+                return {'status': 'complete', 'indent': ''}
             else:
-                return {'status' : 'incomplete', 'indent': ''}
+                return {'status': 'incomplete', 'indent': ''}
         # The scala interpreter can take a while to be alive, only use the fancy method when we dont need to lazily
         # instantiate the interpreter
         # otherwise, how to know is complete?
@@ -184,27 +154,25 @@ class SpylonKernel(MetaKernel):
         STDOUT = os.path.abspath(os.path.join(self.tempdir, 'stdout'))
         STDERR = os.path.abspath(os.path.join(self.tempdir, 'stderr'))
         # Start up the pipes on the JVM side
+        self.log.critical("STDOUT %s", STDOUT)
         magic = self.line_magics['scala']
 
         self.log.critical("Before Java redirected")
-        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File("{filename}"), true)))'
+        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
         code = '\n'.join([
             'import java.io.{PrintStream, FileOutputStream, File}',
             'import scala.Console',
-            code.format(pipe="Out", filename=STDOUT),
-            code.format(pipe="Err", filename=STDERR)
+            code.format(pipe="Out", filename=pathlib.Path(STDOUT).as_uri()),
+            code.format(pipe="Err", filename=pathlib.Path(STDERR).as_uri())
         ])
         o = magic.eval(code, raw=True)
-        self.log.critical("Console redirected")
+        self.log.critical("Console redirected %s", o)
 
         loop = asyncio.get_event_loop()
         loop.create_task(self._poll_file(STDOUT, self.Write))
         loop.create_task(self._poll_file(STDERR, self.Error))
-        #loop.create_task(self._loop_alive())
 
         ioloop.IOLoop.current().spawn_callback(self._loop_alive)
-        # self._poll_file, STDOUT, self.Write)
-        # ioloop.IOLoop.current().spawn_callback(self._poll_file, STDERR, self.Error)
 
     @gen.coroutine
     def _loop_alive(self):
@@ -238,8 +206,6 @@ class SpylonKernel(MetaKernel):
             else:
                 await asyncio.sleep(0.01)
 
-
-
 # TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
 
 # localhost:PORT/output
@@ -248,5 +214,3 @@ class SpylonKernel(MetaKernel):
 #     "mimetype": "plain",
 #     "data": object()
 # }
-
-

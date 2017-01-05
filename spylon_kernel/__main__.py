@@ -5,7 +5,7 @@ import sys
 
 if __name__ == '__main__':
 
-    ## For testing purposes we want to be able to run our kernel with coverage on.
+    # For testing purposes we want to be able to run our kernel with coverage on.
     try:
         import coverage
         coverage.process_startup()

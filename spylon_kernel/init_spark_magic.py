@@ -31,7 +31,7 @@ class InitSparkMagic(Magic):
         This will evaluate the launcher args using spylon.
         """
         if "__builtins__" not in self.env:
-            ## __builtins__ get generated after an eval:
+            # __builtins__ get generated after an eval:
             eval("1", self.env)
 
         globals_dict = self.env
@@ -42,7 +42,7 @@ class InitSparkMagic(Magic):
         self.kernel.Display()
 
     def get_completions(self, info):
-        '''Get Python completions'''
+        """Get Python completions"""
         # https://github.com/davidhalter/jedi/blob/master/jedi/utils.py
         if jedi is None:
             return []
