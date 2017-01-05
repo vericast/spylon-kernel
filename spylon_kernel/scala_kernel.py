@@ -5,6 +5,7 @@ import os
 import pathlib
 import shutil
 import sys
+import atexit
 from tempfile import mkdtemp
 from metakernel import MetaKernel
 from metakernel.process_metakernel import TextOutput
@@ -50,7 +51,11 @@ class SpylonKernel(MetaKernel):
         super(SpylonKernel, self).__init__(*args, **kwargs)
         self.register_magics(ScalaMagic)
         self.register_magics(InitSparkMagic)
-        self.tempdir = mkdtemp()
+
+        tempdir = mkdtemp()
+        atexit.register(shutil.rmtree, tempdir, True)
+        self.tempdir = tempdir
+
         self._is_complete_ready = False
         self._scalamagic = self.line_magics['scala']
         assert isinstance(self._scalamagic, ScalaMagic)
