@@ -27,7 +27,7 @@ The scala spark metakernl prodived a scala kernel by default.
 At the first scala cell that is run a spark session will be constructed so that a user can interact with the 
 interpreter.
 
-## Customizing the spark context
+### Customizing the spark context
 
 The launch arguments can be customized using the `%%init_spark` magic as follows
 
@@ -38,7 +38,7 @@ launcher.master = "local[4]"
 launcher.conf.spark.executor.cores = 8
 ```
 
-## Other languages
+### Other languages
 
 Since this makes use of metakernel you can evaluate normal python code using the `%%python` magic.  In addition once 
 the spark context has been created the `spark` variable will be added to your python ernvironment.
