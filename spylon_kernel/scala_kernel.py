@@ -1,5 +1,6 @@
 from __future__ import absolute_import, print_function, division
 
+import pathlib
 import sys
 
 import time
@@ -179,18 +180,19 @@ class SpylonKernel(MetaKernel):
         STDOUT = os.path.abspath(os.path.join(self.tempdir, 'stdout'))
         STDERR = os.path.abspath(os.path.join(self.tempdir, 'stderr'))
         # Start up the pipes on the JVM side
+        self.log.critical("STDOUT %s", STDOUT)
         magic = self.line_magics['scala']
 
         self.log.critical("Before Java redirected")
-        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File("{filename}"), true)))'
+        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
         code = '\n'.join([
             'import java.io.{PrintStream, FileOutputStream, File}',
             'import scala.Console',
-            code.format(pipe="Out", filename=STDOUT),
-            code.format(pipe="Err", filename=STDERR)
+            code.format(pipe="Out", filename=pathlib.Path(STDOUT).as_uri()),
+            code.format(pipe="Err", filename=pathlib.Path(STDERR).as_uri())
         ])
         o = magic.eval(code, raw=True)
-        self.log.critical("Console redirected")
+        self.log.critical("Console redirected %s", o)
 
         loop = asyncio.get_event_loop()
         loop.create_task(self._poll_file(STDOUT, self.Write))
