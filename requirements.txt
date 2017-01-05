@@ -5,3 +5,4 @@ pandas
 findspark
 pyyaml
 ipykernel
+tornado

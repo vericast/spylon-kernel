@@ -3,11 +3,9 @@ import os
 import shutil
 import signal
 import tempfile
-import spylon.spark
-from tornado import gen
-from tornado.concurrent import Future, run_on_executor
-from tornado.platform.asyncio import to_tornado_future
 from concurrent.futures import ThreadPoolExecutor
+
+import spylon.spark
 
 spark_session = None
 spark_jvm_helpers = None
@@ -33,7 +31,11 @@ def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
 
 def initialize_scala_kernel():
     """
-    Instantiates the scala interpreter via py4j and pyspar.
+    Instantiates the scala interpreter via py4j and pyspark.
+
+    Notes
+    -----
+    Portions of this have been adapted out of Apache Toree and Zeppelin
 
     Returns
     -------
@@ -194,14 +196,15 @@ class _SparkILoopWrapper(object):
             self._jcompleter = jClass(self.jiloop)
         return self._jcompleter
 
-
     def complete(self, code, pos):
-        """
+        """Performs code completion for a block of scala code.
 
         Parameters
         ----------
         code : str
+            Scala code to perform completion on
         pos : int
+            Cursor position
 
         Returns
         -------
