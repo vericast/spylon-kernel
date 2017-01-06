@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function, division
 from .scala_kernel import SpylonKernel
 from .scala_magic import ScalaMagic
 from .init_spark_magic import InitSparkMagic
-from ._scala_interpreter import get_scala_interpreter
+from .scala_interpreter import get_scala_interpreter
 
 
 def register_ipython_magics():

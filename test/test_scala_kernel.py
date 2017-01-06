@@ -1,4 +1,6 @@
 import pytest
+from metakernel.process_metakernel import TextOutput
+
 from spylon_kernel import SpylonKernel
 import re
 from textwrap import dedent
@@ -25,7 +27,9 @@ def spylon_kernel(request):
 def test_simple_expression(spylon_kernel):
     assert isinstance(spylon_kernel, MockingSpylonKernel)
     result = spylon_kernel.do_execute_direct("4 + 4")
-    assert re.match('res\d+: Int = 8\n', result.output)
+    assert isinstance(result, TextOutput)
+    output = result.output
+    assert re.match('res\d+: Int = 8\n', output)
 
 
 def test_exception(spylon_kernel):
@@ -81,3 +85,13 @@ def test_init_magic_completion(spylon_kernel):
         launcher.conf.spark.executor.cor""")
     result = spylon_kernel.do_complete(code, len(code))
     assert set(result['matches']) == {'launcher.conf.spark.executor.cores'}
+
+
+def test_stdout(spylon_kernel):
+    spylon_kernel.do_execute_direct('''
+        Console.err.println("Error")
+        // Sleep for a bit since the process for getting text output is asynchronous
+        Thread.sleep(1000)''')
+    error, _ = spylon_kernel.Errors.pop()
+    assert error[0].strip() == 'Error'
+

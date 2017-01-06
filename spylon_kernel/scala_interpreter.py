@@ -1,9 +1,17 @@
+import asyncio
 import atexit
 import os
 import shutil
 import signal
 import tempfile
+
+import logging
+
+import pathlib
+import sys
 from concurrent.futures import ThreadPoolExecutor
+from asyncio import new_event_loop
+from typing import Callable, Union, List, Any
 
 import spylon.spark
 
@@ -152,22 +160,90 @@ class ScalaException(Exception):
         super(ScalaException, self).__init__(scala_message, *args, **kwargs)
         self.scala_message = scala_message
 
+tOutputHandler = Callable[[List[Any]], None]
 
 class SparkInterpreter(object):
-
     executor = ThreadPoolExecutor(4)
 
-    def __init__(self, jvm, jiloop, jbyteout):
+    def __init__(self, jvm, jiloop, jbyteout, loop: Union[None, asyncio.AbstractEventLoop]=None ):
         self._jcompleter = None
         self.jvm = jvm
         self.jiloop = jiloop
+        if loop is None:
+            # TODO: We may want to use new_event_loop here to avoid stopping and starting the main one.
+            loop = asyncio.get_event_loop()
+        self.loop = loop
+        self.log = logging.getLogger(self.__class__.__name__)
 
         interpreterPkg = getattr(getattr(self.jvm.scala.tools.nsc.interpreter, 'package$'), "MODULE$")
         # = spark_jvm_helpers.import_scala_package_object("scala.tools.nsc.interpreter")
         self.iMainOps = interpreterPkg.IMainOps(jiloop)
         self.jbyteout = jbyteout
 
-    def interpret(self, code, synthetic=False):
+        tempdir = tempfile.mkdtemp()
+        atexit.register(shutil.rmtree, tempdir, True)
+        self.tempdir = tempdir
+        # Handlers for dealing with stout and stderr.  This allows us to insert additional behavior for magics
+        self._stdout_handlers = []
+        # self.register_stdout_handler(lambda *args: print(*args, file=sys.stdout))
+        self._stderr_handlers = []
+        # self.register_stderr_handler(lambda *args: print(*args, file=sys.stderr))
+        self._initialize_stdout_err()
+
+    def register_stdout_handler(self, handler: tOutputHandler):
+        self._stdout_handlers.append(handler)
+
+    def register_stderr_handler(self, handler: tOutputHandler):
+        self._stderr_handlers.append(handler)
+
+    def _initialize_stdout_err(self):
+        stdout_file = os.path.abspath(os.path.join(self.tempdir, 'stdout'))
+        stderr_file = os.path.abspath(os.path.join(self.tempdir, 'stderr'))
+        # Start up the pipes on the JVM side
+
+        self.log.critical("Before Java redirected")
+        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
+        code = '\n'.join([
+            'import java.io.{PrintStream, FileOutputStream, File}',
+            'import scala.Console',
+            code.format(pipe="Out", filename=pathlib.Path(stdout_file).as_uri()),
+            code.format(pipe="Err", filename=pathlib.Path(stderr_file).as_uri())
+        ])
+        o = self.interpret(code)
+        self.log.critical("Console redirected")
+
+        self.loop.create_task(self._poll_file(stdout_file, self.handle_stdout))
+        self.loop.create_task(self._poll_file(stderr_file, self.handle_stderr))
+
+    def handle_stdout(self, *args) -> None:
+        for handler in self._stdout_handlers:
+            handler(*args)
+
+    def handle_stderr(self, *args) -> None:
+        for handler in self._stderr_handlers:
+            handler(*args)
+
+    async def _poll_file(self, filename: str, fn: Callable[[Any], None]):
+        """
+
+        Parameters
+        ----------
+        filename : str
+        fn : (str) -> None
+            Function to deal with string output.
+        """
+        fd = open(filename, 'r')
+        while True:
+            line = fd.readline()
+            if line:
+                # self.log.critical("READ LINE from %s, %s", filename, line)
+                fn(line)
+                # self.log.critical("AFTER PUSH")
+                await asyncio.sleep(0, loop=self.loop)
+            else:
+                await asyncio.sleep(0.01, loop=self.loop)
+
+    def interpret_sync(self, code: str, synthetic=False):
         """Interpret a block of scala code.
 
         If you want to get the result as a python object, follow this will a call to `last_result()`
@@ -198,6 +274,20 @@ class SparkInterpreter(object):
         finally:
             self.jbyteout.reset()
 
+    async def interpret_async(self, code: str, future: Future):
+        try:
+            result = await self.loop.run_in_executor(self.executor, self.interpret_sync, code)
+            future.set_result(result)
+        except Exception as e:
+            future.set_exception(e)
+        return
+
+    def interpret(self, code: str):
+        fut = asyncio.Future(loop=self.loop)
+        asyncio.ensure_future(self.interpret_async(code, fut), loop=self.loop)
+        res = self.loop.run_until_complete(fut)
+        return res
+
     def last_result(self):
         """Retrieves the jvm result object from the previous call to interpret.
 
@@ -220,7 +310,7 @@ class SparkInterpreter(object):
             self._jcompleter = jClass(self.jiloop)
         return self._jcompleter
 
-    def complete(self, code, pos):
+    def complete(self, code: str, pos: int) -> List[str]:
         """Performs code completion for a block of scala code.
 
         Parameters
