@@ -36,6 +36,7 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
     incomplete_code_samples = ['{ val foo = 9 ']
     invalid_code_samples = ['val {}']
 
+    code_generate_error = "4 / 0"
 
 if __name__ == '__main__':
     unittest.main()

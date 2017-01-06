@@ -88,7 +88,18 @@ class ScalaMagic(Magic):
                 if res:
                     return TextOutput(res)
         except ScalaException as e:
-            return self.kernel.Error(e.scala_message)
+            resp = self.kernel.kernel_resp
+            resp['status'] = 'error'
+
+            tb = e.scala_message.split('\n')
+            first = tb[0]
+            assert isinstance(first, str)
+            eclass, _, emessage = first.partition(':')
+            resp['traceback'] = tb[1:]
+            resp['evalue'] = emessage
+            resp['ename'] = eclass
+            return e
+            #return self.kernel.Error(e.scala_message)
 
     @option(
         "-e", "--eval_output", action="store_true", default=False,

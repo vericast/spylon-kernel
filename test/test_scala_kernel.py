@@ -4,6 +4,9 @@ from metakernel.process_metakernel import TextOutput
 from spylon_kernel import SpylonKernel
 import re
 from textwrap import dedent
+from jupyter_client.session import Session
+from unittest.mock import Mock
+
 
 class MockingSpylonKernel(SpylonKernel):
 
@@ -11,6 +14,7 @@ class MockingSpylonKernel(SpylonKernel):
         super(MockingSpylonKernel, self).__init__(*args, **kwargs)
         self.Displays = []
         self.Errors = []
+        self.session = Mock(Session)
 
     def Display(self, *args, **kwargs):
         self.Displays.append((args, kwargs))
@@ -33,9 +37,10 @@ def test_simple_expression(spylon_kernel):
 
 
 def test_exception(spylon_kernel):
-    spylon_kernel.do_execute_direct("4 / 0 ")
-    error, _ = spylon_kernel.Errors.pop()
-    assert "java.lang.ArithmeticException: / by zero" in error[0]
+    spylon_kernel.do_execute("4 / 0 ")
+    assert spylon_kernel.kernel_resp['status'] == 'error'
+    assert spylon_kernel.kernel_resp['ename'] == 'java.lang.ArithmeticException'
+    assert spylon_kernel.kernel_resp['evalue'].strip() == '/ by zero'
 
 
 def test_completion(spylon_kernel):

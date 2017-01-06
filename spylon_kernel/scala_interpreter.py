@@ -20,7 +20,7 @@ spark_jvm_helpers = None
 scala_intp = None
 
 
-def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
+def init_spark_session(conf: spylon.spark.SparkConfiguration=None, application_name: str="ScalaMetaKernel"):
     # Ensure we have the correct classpath settings for the repl to work.
     os.environ.setdefault('SPARK_SUBMIT_OPTS', '-Dscala.usejavacp=true')
     global spark_session
@@ -34,9 +34,11 @@ def init_spark_session(conf=None, application_name="ScalaMetaKernel"):
     spark_session = SparkSession(spark_context)
     from spylon.spark.utils import SparkJVMHelpers
     global spark_jvm_helpers
+    # noinspection PyProtectedMember
     spark_jvm_helpers = SparkJVMHelpers(spark_session._sc)
 
 
+# noinspection PyProtectedMember
 def initialize_scala_interpreter():
     """
     Instantiates the scala interpreter via py4j and pyspark.
@@ -176,7 +178,7 @@ class SparkInterpreter(object):
         self.log = logging.getLogger(self.__class__.__name__)
 
         interpreterPkg = getattr(getattr(self.jvm.scala.tools.nsc.interpreter, 'package$'), "MODULE$")
-        # = spark_jvm_helpers.import_scala_package_object("scala.tools.nsc.interpreter")
+        # spark_jvm_helpers.import_scala_package_object("scala.tools.nsc.interpreter")
         self.iMainOps = interpreterPkg.IMainOps(jiloop)
         self.jbyteout = jbyteout
 
