@@ -2,3 +2,4 @@ metakernel
 spylon
 jedi
 tornado
+ipykernel
