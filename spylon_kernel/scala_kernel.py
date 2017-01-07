@@ -76,7 +76,6 @@ class SpylonKernel(MetaKernel):
         # python_magic = self.line_magics['python']
         # return python_magic.env.get(name, None)
 
-
     def do_execute_direct(self, code, silent=False):
         try:
             res = self._scalamagic.eval(code.strip(), raw=False)

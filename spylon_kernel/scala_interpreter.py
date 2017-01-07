@@ -10,7 +10,7 @@ import logging
 import pathlib
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from asyncio import new_event_loop
+from asyncio import new_event_loop, Future
 from typing import Callable, Union, List, Any
 
 import spylon.spark

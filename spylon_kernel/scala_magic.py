@@ -95,10 +95,8 @@ class ScalaMagic(Magic):
             first = tb[0]
             assert isinstance(first, str)
             eclass, _, emessage = first.partition(':')
-            resp['traceback'] = tb[1:]
-            resp['evalue'] = emessage
-            resp['ename'] = eclass
-            return e
+            from metakernel import ExceptionWrapper
+            return ExceptionWrapper(eclass, emessage, tb[1:])
             #return self.kernel.Error(e.scala_message)
 
     @option(
