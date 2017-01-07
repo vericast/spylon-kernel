@@ -3,3 +3,6 @@ spylon
 jedi
 tornado
 ipykernel
+# spylon has an optional dep on pandas which we hit
+pandas
+
