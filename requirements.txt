@@ -3,6 +3,7 @@ spylon
 jedi
 tornado
 ipykernel
-# spylon has an optional dep on pandas which we hit
+# spylon has some optional deps which we require.
 pandas
+findspark
 
