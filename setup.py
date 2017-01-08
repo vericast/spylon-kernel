@@ -14,7 +14,7 @@ setup(
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     url='http://github.com/mariusvniekerk/spylon-kernel',
-    requirements=['spylon', 'findspark', 'pandas', 'metakernel', 'jedi', 'tornado'],
+    requirements=['spylon[spark]', 'metakernel', 'jedi', 'tornado'],
     packages=list(find_packages()),
     author='Marius van Niekerk',
     author_email='marius.v.niekerk+spylon@gmail.com',

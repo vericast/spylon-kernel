@@ -1,9 +1,5 @@
 metakernel
-spylon
+spylon[spark]
 jedi
 tornado
 ipykernel
-# spylon has some optional deps which we require.
-pandas
-findspark
-pyyaml
