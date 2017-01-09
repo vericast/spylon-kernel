@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.org/mariusvniekerk/spylon-kernel.svg?branch=master)](https://travis-ci.org/mariusvniekerk/spylon-kernel)
 [![codecov](https://codecov.io/gh/mariusvniekerk/spylon-kernel/branch/master/graph/badge.svg)](https://codecov.io/gh/mariusvniekerk/spylon-kernel)
 
-This is an extremely early proof of concept for using the metakernel in combination with py4j to make a simpler
+This is an extremely early proof of concept for using metakernel in combination with py4j to make a simpler
 kernel for scala.
 
 ## Installation
@@ -15,17 +15,13 @@ pip install .
 
 ## Installing the jupyter kernel
 
-To install the jupyter kernel install it using
-
 ```
 python -m spylon_kernel install
 ```
 
 ## Using the kernel
 
-The scala spark metakernl prodived a scala kernel by default.
-At the first scala cell that is run a spark session will be constructed so that a user can interact with the 
-interpreter.
+The scala spark metakernel provides a scala kernel by default. On the first execution of scala code, a spark session will be constructed so that a user can interact with the interpreter.
 
 ### Customizing the spark context
 
@@ -41,7 +37,7 @@ launcher.conf.spark.executor.cores = 8
 ### Other languages
 
 Since this makes use of metakernel you can evaluate normal python code using the `%%python` magic.  In addition once 
-the spark context has been created the `spark` variable will be added to your python ernvironment.
+the spark context has been created the `spark` variable will be added to your python environment.
 
 ```python
 %%python
