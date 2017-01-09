@@ -1,4 +1,3 @@
 include versioneer.py
 include spylon_kernel/_version.py
-include README.md
-include LICENSE
+
