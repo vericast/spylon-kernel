@@ -10,10 +10,10 @@ from tempfile import mkdtemp
 from metakernel import MetaKernel
 from metakernel.process_metakernel import TextOutput
 
+from spylon_kernel.scala_interpreter import ScalaException
 from tornado import gen
 from tornado import ioloop
 
-from spylon_kernel._scala_interpreter import ScalaException
 from .init_spark_magic import InitSparkMagic
 from .scala_magic import ScalaMagic
 
@@ -52,18 +52,8 @@ class SpylonKernel(MetaKernel):
         self.register_magics(ScalaMagic)
         self.register_magics(InitSparkMagic)
 
-        tempdir = mkdtemp()
-        atexit.register(shutil.rmtree, tempdir, True)
-        self.tempdir = tempdir
-
-        self._is_complete_ready = False
         self._scalamagic = self.line_magics['scala']
         assert isinstance(self._scalamagic, ScalaMagic)
-        self._scalamagic._after_start_interpreter.append(self._initialize_pipes)
-        self._scalamagic._after_start_interpreter.append(lambda: setattr(self, "_is_complete_ready", True))
-
-    def __del__(self):
-        shutil.rmtree(self.tempdir, ignore_errors=True)
 
     @property
     def pythonmagic(self):
@@ -86,25 +76,12 @@ class SpylonKernel(MetaKernel):
         # python_magic = self.line_magics['python']
         # return python_magic.env.get(name, None)
 
-    async def execute_scala_async(self, code, future):
-        intp = self._scalamagic._get_scala_interpreter()
-        loop = asyncio.get_event_loop()
-        try:
-            result = await loop.run_in_executor(intp.executor, intp.interpret, code)
-            self.log.debug("execute scala done")
-            future.set_result(result)
-        except Exception as e:
-            future.set_exception(e)
-        return
-
     def do_execute_direct(self, code, silent=False):
-        loop = asyncio.get_event_loop()
         try:
-            fut = asyncio.Future()
-            asyncio.ensure_future(self.execute_scala_async(code, fut))
-            res = loop.run_until_complete(fut)
+            res = self._scalamagic.eval(code.strip(), raw=False)
+                #self.log.critical("res, %s", res)
             if res:
-                return TextOutput(res)
+                return res
         except ScalaException as e:
             return self.Error(e.scala_message)
 
@@ -134,7 +111,7 @@ class SpylonKernel(MetaKernel):
             return {'status' : 'incomplete',
                     'indent': ' ' * 4}
         """
-        if code.startswith(self.magic_prefixes['magic']) or not self._is_complete_ready:
+        if code.startswith(self.magic_prefixes['magic']) or not self._scalamagic._is_complete_ready:
             # force requirement to end with an empty line
             if code.endswith("\n"):
                 return {'status': 'complete', 'indent': ''}
@@ -150,62 +127,7 @@ class SpylonKernel(MetaKernel):
         # TODO: Better indent
         return {'status': status, 'indent': ' ' * 4 if status == 'incomplete' else ''}
 
-    def _initialize_pipes(self):
-        STDOUT = os.path.abspath(os.path.join(self.tempdir, 'stdout'))
-        STDERR = os.path.abspath(os.path.join(self.tempdir, 'stderr'))
-        # Start up the pipes on the JVM side
         self.log.critical("STDOUT %s", STDOUT)
-        magic = self.line_magics['scala']
-
-        self.log.critical("Before Java redirected")
-        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
-        code = '\n'.join([
-            'import java.io.{PrintStream, FileOutputStream, File}',
-            'import scala.Console',
-            code.format(pipe="Out", filename=pathlib.Path(STDOUT).as_uri()),
-            code.format(pipe="Err", filename=pathlib.Path(STDERR).as_uri())
-        ])
-        o = magic.eval(code, raw=True)
-        self.log.critical("Console redirected %s", o)
-
-        loop = asyncio.get_event_loop()
-        loop.create_task(self._poll_file(STDOUT, self.Write))
-        loop.create_task(self._poll_file(STDERR, self.Error))
-
-        ioloop.IOLoop.current().spawn_callback(self._loop_alive)
-
-    @gen.coroutine
-    def _loop_alive(self):
-        """This is a little hack to ensure that during the tornado eventloop we also run one iteration of the asyncio
-        eventloop.
-
-        """
-        loop = asyncio.get_event_loop()
-        while True:
-            loop.call_soon(loop.stop)
-            loop.run_forever()
-            yield gen.sleep(0.01)
-
-    async def _poll_file(self, filename, fn):
-        """
-
-        Parameters
-        ----------
-        filename : str
-        fn : (str) -> None
-            Function to deal with string output.
-        """
-        fd = open(filename, 'r')
-        while True:
-            line = fd.readline()
-            if line:
-                self.log.critical("READ LINE from %s, %s", filename, line)
-                fn(line)
-                self.log.critical("AFTER PUSH")
-                await asyncio.sleep(0)
-            else:
-                await asyncio.sleep(0.01)
-
 # TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
 
 # localhost:PORT/output

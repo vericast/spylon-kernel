@@ -5,26 +5,32 @@ from metakernel import Magic
 from metakernel import MetaKernel
 from metakernel import option
 from metakernel.process_metakernel import TextOutput
+from tornado import ioloop, gen
 
-from ._scala_interpreter import get_scala_interpreter, ScalaException
-from . import _scala_interpreter
+from .scala_interpreter import get_scala_interpreter, ScalaException
+from . import scala_interpreter
 
 
 class ScalaMagic(Magic):
+    """
+    Attributes
+    ----------
+    _interp : spylon_kernel.ScalaInterpreter
+    """
+
 
     def __init__(self, kernel):
         super(ScalaMagic, self).__init__(kernel)
         self.retval = None
         self._interp = None
-        # internal use function for running some functions after the interpreter is started up
-        self._after_start_interpreter = []
+        self._is_complete_ready = False
 
     def _get_scala_interpreter(self):
         """
 
         Returns
         -------
-        scala_intp : _scala_interpreter.SparkInterpreter
+        scala_intp : scala_interpreter.SparkInterpreter
         """
         if self._interp is None:
             assert isinstance(self.kernel, MetaKernel)
@@ -32,11 +38,30 @@ class ScalaMagic(Magic):
             self._interp = get_scala_interpreter()
             self.kernel.Display("Scala interpreter initialized.")
             # Ensure that spark is available in the python session as well.
-            self.kernel.cell_magics['python'].env['spark'] = _scala_interpreter.spark_session
+            self.kernel.cell_magics['python'].env['spark'] = scala_interpreter.spark_session
             # self.Display("Registered spark session in scala and python context as `spark`")
-            for fn in self._after_start_interpreter:
-                fn()
+            self._initialize_pipes()
+            self._is_complete_ready = True
+            self._interp.register_stdout_handler(self.kernel.Write)
+            self._interp.register_stderr_handler(self.kernel.Error)
         return self._interp
+
+    def _initialize_pipes(self):
+        ioloop.IOLoop.current().spawn_callback(self._loop_alive)
+        # self._poll_file, STDOUT, self.Write)
+        # ioloop.IOLoop.current().spawn_callback(self._poll_file, STDERR, self.Error)
+
+    @gen.coroutine
+    def _loop_alive(self):
+        """This is a little hack to ensure that during the tornado eventloop we also run one iteration of the asyncio
+        eventloop.
+
+        """
+        loop = self._interp.loop
+        while True:
+            loop.call_soon(loop.stop)
+            loop.run_forever()
+            yield gen.sleep(0.01)
 
     def line_scala(self, *args):
         """
@@ -63,7 +88,16 @@ class ScalaMagic(Magic):
                 if res:
                     return TextOutput(res)
         except ScalaException as e:
-            return self.kernel.Error(e.scala_message)
+            resp = self.kernel.kernel_resp
+            resp['status'] = 'error'
+
+            tb = e.scala_message.split('\n')
+            first = tb[0]
+            assert isinstance(first, str)
+            eclass, _, emessage = first.partition(':')
+            from metakernel import ExceptionWrapper
+            return ExceptionWrapper(eclass, emessage, tb[1:])
+            #return self.kernel.Error(e.scala_message)
 
     @option(
         "-e", "--eval_output", action="store_true", default=False,

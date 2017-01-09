@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function, division
 from .scala_kernel import SpylonKernel
 from .scala_magic import ScalaMagic
 from .init_spark_magic import InitSparkMagic
-from ._scala_interpreter import get_scala_interpreter
+from .scala_interpreter import get_scala_interpreter
 
 
 def register_ipython_magics():
@@ -29,3 +29,7 @@ def register_ipython_magics():
     def init_spark(line, cell):
         init_spark_magic.code = cell
         return init_spark_magic.cell_init_spark()
+
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions

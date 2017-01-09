@@ -1,8 +1,5 @@
 metakernel
-spylon
+spylon[spark]
 jedi
-pandas
-findspark
-pyyaml
-ipykernel
 tornado
+ipykernel

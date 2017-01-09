@@ -1,6 +1,5 @@
 from setuptools import setup, find_packages
-
-version = '0.0.1'
+import versioneer
 
 try:
     import pypandoc
@@ -12,9 +11,10 @@ setup(
     name='spylon-kernel',
     description='Jupyter metakernel for apache spark and scala',
     long_description=long_description,
-    version=str(version),
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     url='http://github.com/mariusvniekerk/spylon-kernel',
-    requirements=['spylon', 'metakernel'],
+    requirements=['spylon[spark]', 'metakernel', 'jedi', 'tornado'],
     packages=list(find_packages()),
     author='Marius van Niekerk',
     author_email='marius.v.niekerk+spylon@gmail.com',
