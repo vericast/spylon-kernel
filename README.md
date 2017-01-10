@@ -9,6 +9,8 @@ kernel for scala.
 
 On python 3.5+
 
+:exclamation: Due to [SPARK-19019](https://issues.apache.org/jira/browse/SPARK-19019) Apache Spark does not current work in Python 3.   6
+
 ```bash
 pip install .
 ```
