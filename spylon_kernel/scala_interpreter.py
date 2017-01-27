@@ -305,6 +305,18 @@ class SparkInterpreter(object):
         res = lr.lineRep().call("$result", spark_jvm_helpers.to_scala_list([]))
         return res
 
+    def bind(self, name: str, value: Any, jtyp: str="Any"):
+        """
+
+        Parameters
+        ----------
+        varname : str
+        value : Any
+
+        """
+        spark_jvm_helpers.to_scala_list(["@transient"])
+        self.jiloop.bind(name, "Any", value, )
+
     @property
     def jcompleter(self):
         if self._jcompleter is None:

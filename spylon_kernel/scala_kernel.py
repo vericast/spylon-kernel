@@ -1,19 +1,12 @@
 from __future__ import absolute_import, print_function, division
 
-import asyncio
-import os
-import pathlib
-import shutil
 import sys
-import atexit
-from tempfile import mkdtemp
+
 from metakernel import MetaKernel
-from metakernel.process_metakernel import TextOutput
+from metakernel.magics.python_magic import PythonMagic
+from traitlets import Instance, Any
 
-from spylon_kernel.scala_interpreter import ScalaException
-from tornado import gen
-from tornado import ioloop
-
+from spylon_kernel.scala_interpreter import ScalaException, SparkInterpreter
 from .init_spark_magic import InitSparkMagic
 from .scala_magic import ScalaMagic
 
@@ -51,9 +44,10 @@ class SpylonKernel(MetaKernel):
         super(SpylonKernel, self).__init__(*args, **kwargs)
         self.register_magics(ScalaMagic)
         self.register_magics(InitSparkMagic)
-
         self._scalamagic = self.line_magics['scala']
+        self._pythonmagic = self.line_magics['python']
         assert isinstance(self._scalamagic, ScalaMagic)
+        assert isinstance(self._pythonmagic, PythonMagic)
 
     @property
     def pythonmagic(self):
@@ -66,15 +60,21 @@ class SpylonKernel(MetaKernel):
         """
         Set a variable in the kernel language.
         """
+        intp = self._scalamagic._get_scala_interpreter()
+        assert isinstance(intp, SparkInterpreter)
+        intp.bind(name, value)
+
         # python_magic = self.line_magics['python']
         # python_magic.env[name] = value
 
     def get_variable(self, name):
         """
-        Get a variable from the kernel language.
+        Get a variable from the kernel as a Python-typed value.
         """
-        # python_magic = self.line_magics['python']
-        # return python_magic.env.get(name, None)
+        intp = self._scalamagic._get_scala_interpreter()
+        assert isinstance(intp, SparkInterpreter)
+        intp.interpret(name)
+        return intp.last_result()
 
     def do_execute_direct(self, code, silent=False):
         try:
