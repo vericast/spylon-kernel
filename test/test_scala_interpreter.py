@@ -21,7 +21,7 @@ def test_completion(scala_kernel):
     assert result == ['toLong']
 
 
-def test_iscomplete(scala_kernel):
+def test_is_complete(scala_kernel):
     result = scala_kernel.is_complete('val foo = 99')
     assert result == 'complete'
 
@@ -32,14 +32,6 @@ def test_iscomplete(scala_kernel):
     assert result == 'invalid'
 
 
-# def test_interpreter_help(scala_kernel):
-#     scala_kernel.interpret("val z = 5")
-#     print(scala_kernel.jiloop.getClass().toString())
-#     print(dir(scala_kernel.iMainOps))
-#     scala_kernel.interpret("case class Foo(bar: String)")
-#     h = scala_kernel.iMainOps.implicitsCommand("")
-#     assert h == ''
-
 def test_last_result(scala_kernel):
     scala_kernel.interpret("""
     case class LastResult(member: Int)
@@ -49,6 +41,7 @@ def test_last_result(scala_kernel):
 
     assert jres.getClass().getName().endswith("LastResult")
     assert jres.member() == 8
+
 
 def test_help(scala_kernel):
     scala_kernel.interpret("val x = 4")

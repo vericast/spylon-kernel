@@ -42,7 +42,7 @@ class InitSparkMagic(Magic):
         self.kernel.Display()
 
     def get_completions(self, info):
-        """Get Python completions"""
+        """Get Python completions."""
         # https://github.com/davidhalter/jedi/blob/master/jedi/utils.py
         if jedi is None:
             return []

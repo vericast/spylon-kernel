@@ -20,10 +20,8 @@ class SpylonKernel(MetaKernel):
     language_info = {
         'mimetype': 'text/x-scala',
         'name': 'scala',
-        # ------ If different from 'language':
         'codemirror_mode': "text/x-scala",
         'pygments_lexer': 'scala',
-        # 'version'       : "x.y.z",
         'file_extension': '.scala',
         'help_links': MetaKernel.help_links,
         'version': implementation_version,
@@ -41,13 +39,14 @@ class SpylonKernel(MetaKernel):
     }
 
     def __init__(self, *args, **kwargs):
+        self._scalamagic = None
         super(SpylonKernel, self).__init__(*args, **kwargs)
         self.register_magics(ScalaMagic)
         self.register_magics(InitSparkMagic)
         self._scalamagic = self.line_magics['scala']
         self._pythonmagic = self.line_magics['python']
-        assert isinstance(self._scalamagic, ScalaMagic)
-        assert isinstance(self._pythonmagic, PythonMagic)
+        # assert isinstance(self._scalamagic, ScalaMagic)
+        # assert isinstance(self._pythonmagic, PythonMagic)
 
     @property
     def pythonmagic(self):
@@ -60,26 +59,27 @@ class SpylonKernel(MetaKernel):
         """
         Set a variable in the kernel language.
         """
-        intp = self._scalamagic._get_scala_interpreter()
-        assert isinstance(intp, SparkInterpreter)
-        intp.bind(name, value)
-
-        # python_magic = self.line_magics['python']
-        # python_magic.env[name] = value
+        # Since metakernel calls this to bind kernel into the remote space we don't actually want that to happen.
+        # Simplest is just to have this flag as None initially.
+        if self._scalamagic:
+            intp = self._scalamagic._get_scala_interpreter()
+            assert isinstance(intp, SparkInterpreter)
+            intp.bind(name, value)
 
     def get_variable(self, name):
         """
         Get a variable from the kernel as a Python-typed value.
         """
-        intp = self._scalamagic._get_scala_interpreter()
-        assert isinstance(intp, SparkInterpreter)
-        intp.interpret(name)
-        return intp.last_result()
+        if self._scalamagic:
+            intp = self._scalamagic._get_scala_interpreter()
+            assert isinstance(intp, SparkInterpreter)
+            intp.interpret(name)
+            return intp.last_result()
 
     def do_execute_direct(self, code, silent=False):
+
         try:
             res = self._scalamagic.eval(code.strip(), raw=False)
-                #self.log.critical("res, %s", res)
             if res:
                 return res
         except ScalaException as e:
@@ -117,19 +117,18 @@ class SpylonKernel(MetaKernel):
                 return {'status': 'complete', 'indent': ''}
             else:
                 return {'status': 'incomplete', 'indent': ''}
-        # The scala interpreter can take a while to be alive, only use the fancy method when we dont need to lazily
-        # instantiate the interpreter
-        # otherwise, how to know is complete?
+        # The scala interpreter can take a while to be alive, only use the fancy method when we don't need to lazily
+        # instantiate the interpreter.
         magic = self.line_magics['scala']
         assert isinstance(magic, ScalaMagic)
         interp = magic._get_scala_interpreter()
         status = interp.is_complete(code)
-        # TODO: Better indent
+        # TODO: We can probably do a better job of detecting a good indent level here by making use of a code parser
+        #       such as pygments
         return {'status': status, 'indent': ' ' * 4 if status == 'incomplete' else ''}
 
-        self.log.critical("STDOUT %s", STDOUT)
-# TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
 
+# TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
 # localhost:PORT/output
 # {
 #     "output_id": "string",

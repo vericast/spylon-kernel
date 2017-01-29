@@ -4,13 +4,10 @@ import os
 import shutil
 import signal
 import tempfile
-
 import logging
-
 import pathlib
-import sys
 from concurrent.futures import ThreadPoolExecutor
-from asyncio import new_event_loop, Future
+from asyncio import Future
 from typing import Callable, Union, List, Any
 
 import spylon.spark
@@ -45,7 +42,7 @@ def initialize_scala_interpreter():
 
     Notes
     -----
-    Portions of this have been adapted out of Apache Toree and Zeppelin
+    Portions of this have been adapted out of Apache Toree and Apache Zeppelin
 
     Returns
     -------
@@ -314,8 +311,15 @@ class SparkInterpreter(object):
         value : Any
 
         """
-        spark_jvm_helpers.to_scala_list(["@transient"])
-        self.jiloop.bind(name, "Any", value, )
+        modifiers = spark_jvm_helpers.to_scala_list(["@transient"])
+        # Ensure that the value that we are trying to set here is a compatible type on the java side
+        # Import is here due to lazily instantiating the SparkContext
+        from py4j.java_gateway import JavaClass, JavaObject, JavaMember
+        compatible_types = (
+            int, str, bytes, bool, list, dict, JavaClass, JavaMember, JavaObject
+        )
+        if isinstance(value, compatible_types):
+            self.jiloop.bind(name, "Any", value, modifiers)
 
     @property
     def jcompleter(self):

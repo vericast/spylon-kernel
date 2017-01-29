@@ -2,8 +2,7 @@
 [![Build Status](https://travis-ci.org/mariusvniekerk/spylon-kernel.svg?branch=master)](https://travis-ci.org/mariusvniekerk/spylon-kernel)
 [![codecov](https://codecov.io/gh/mariusvniekerk/spylon-kernel/branch/master/graph/badge.svg)](https://codecov.io/gh/mariusvniekerk/spylon-kernel)
 
-This is an extremely early proof of concept for using metakernel in combination with py4j to make a simpler
-kernel for scala.
+This is a beta level concept for using metakernel in combination with py4j to make a simpler kernel for scala.
 
 ## Installation
 
@@ -45,8 +44,6 @@ the spark context has been created the `spark` variable will be added to your py
 %%python
 df = spark.read.json("examples/src/main/resources/people.json")
 ```
-
-To get completions for python, make sure that you have installed `jedi`
 
 ## Using as a magic
 

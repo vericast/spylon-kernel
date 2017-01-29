@@ -9,6 +9,9 @@ from unittest.mock import Mock
 
 
 class MockingSpylonKernel(SpylonKernel):
+    """Mock class so that we capture the output of various calls for later inspection.
+
+    """
 
     def __init__(self, *args, **kwargs):
         super(MockingSpylonKernel, self).__init__(*args, **kwargs)
@@ -66,8 +69,8 @@ def test_last_result(spylon_kernel):
     case class LastResult(member: Int)
     val foo = LastResult(8)
     """)
-    #res = spylon_kernel.do_execute("x = %scala foo")
-    #assert res['status'] == 'ok'
+    foo = spylon_kernel.get_variable("foo")
+    assert "foo"
 
 
 def test_help(spylon_kernel):
