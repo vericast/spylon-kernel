@@ -15,6 +15,9 @@ On python 3.5+
 pip install .
 ```
 
+For runtime purposes you need to have Apache Spark installed.  Minimum required is Apache Spark 2.0 compiled for Scala 2.11.
+See [examples](./examples/basic_example.ipynb) for how to configure your spark instance.
+
 ## Installing the jupyter kernel
 
 ```
