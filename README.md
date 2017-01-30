@@ -1,6 +1,6 @@
 # spylon-kernel
-[![Build Status](https://travis-ci.org/mariusvniekerk/spylon-kernel.svg?branch=master)](https://travis-ci.org/mariusvniekerk/spylon-kernel)
-[![codecov](https://codecov.io/gh/mariusvniekerk/spylon-kernel/branch/master/graph/badge.svg)](https://codecov.io/gh/mariusvniekerk/spylon-kernel)
+[![Build Status](https://travis-ci.org/maxpoint/spylon-kernel.svg?branch=master)](https://travis-ci.org/mariusvniekerk/spylon-kernel)
+[![codecov](https://codecov.io/gh/maxpoint/spylon-kernel/branch/master/graph/badge.svg)](https://codecov.io/gh/mariusvniekerk/spylon-kernel)
 
 This is a beta level concept for using metakernel in combination with py4j to make a simpler kernel for scala.
 
