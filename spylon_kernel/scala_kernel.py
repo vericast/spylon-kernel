@@ -50,7 +50,13 @@ class SpylonKernel(MetaKernel):
 
     @property
     def pythonmagic(self):
-        return self.line_magics['python']
+        return self._pythonmagic
+
+    @property
+    def scala_interpreter(self):
+        intp = self._scalamagic._get_scala_interpreter()
+        assert isinstance(intp, SparkInterpreter)
+        return intp
 
     def get_usage(self):
         return "This is spylon-kernel. It implements a Scala interpreter."
@@ -62,17 +68,14 @@ class SpylonKernel(MetaKernel):
         # Since metakernel calls this to bind kernel into the remote space we don't actually want that to happen.
         # Simplest is just to have this flag as None initially.
         if self._scalamagic:
-            intp = self._scalamagic._get_scala_interpreter()
-            assert isinstance(intp, SparkInterpreter)
-            intp.bind(name, value)
+            self.scala_interpreter.bind(name, value)
 
     def get_variable(self, name):
         """
         Get a variable from the kernel as a Python-typed value.
         """
         if self._scalamagic:
-            intp = self._scalamagic._get_scala_interpreter()
-            assert isinstance(intp, SparkInterpreter)
+            intp = self.scala_interpreter
             intp.interpret(name)
             return intp.last_result()
 
@@ -86,12 +89,10 @@ class SpylonKernel(MetaKernel):
             return self.Error(e.scala_message)
 
     def get_completions(self, info):
-        magic = self.line_magics['scala']
-        return magic.get_completions(info)
+        return self._scalamagic.get_completions(info)
 
     def get_kernel_help_on(self, info, level=0, none_on_fail=False):
-        magic = self.line_magics['scala']
-        return magic.get_help_on(info, level, none_on_fail)
+        return self._scalamagic.get_help_on(info, level, none_on_fail)
 
     def do_is_complete(self, code):
         """
@@ -119,10 +120,7 @@ class SpylonKernel(MetaKernel):
                 return {'status': 'incomplete', 'indent': ''}
         # The scala interpreter can take a while to be alive, only use the fancy method when we don't need to lazily
         # instantiate the interpreter.
-        magic = self.line_magics['scala']
-        assert isinstance(magic, ScalaMagic)
-        interp = magic._get_scala_interpreter()
-        status = interp.is_complete(code)
+        status = self.scala_interpreter.is_complete(code)
         # TODO: We can probably do a better job of detecting a good indent level here by making use of a code parser
         #       such as pygments
         return {'status': status, 'indent': ' ' * 4 if status == 'incomplete' else ''}

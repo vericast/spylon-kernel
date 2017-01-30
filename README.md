@@ -8,7 +8,8 @@ This is a beta level concept for using metakernel in combination with py4j to ma
 
 On python 3.5+
 
-:exclamation: Due to [SPARK-19019](https://issues.apache.org/jira/browse/SPARK-19019) Apache Spark does not current work in Python 3.   6
+:exclamation: Due to [SPARK-19019](https://issues.apache.org/jira/browse/SPARK-19019) Apache Spark does not current work
+ in Python 3.6
 
 ```bash
 pip install .
@@ -22,7 +23,8 @@ python -m spylon_kernel install
 
 ## Using the kernel
 
-The scala spark metakernel provides a scala kernel by default. On the first execution of scala code, a spark session will be constructed so that a user can interact with the interpreter.
+The scala spark metakernel provides a scala kernel by default. On the first execution of scala code, a spark session
+will be constructed so that a user can interact with the interpreter.
 
 ### Customizing the spark context
 
