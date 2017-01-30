@@ -67,7 +67,9 @@ class SpylonKernel(MetaKernel):
         """
         # Since metakernel calls this to bind kernel into the remote space we don't actually want that to happen.
         # Simplest is just to have this flag as None initially.
-        if self._scalamagic:
+        # Furthermore the metakernel will attempt to set things like _i1, _i, _ii etc.  These we dont want in the kernel
+        # for now.
+        if self._scalamagic and (not name.startswith("_i")):
             self.scala_interpreter.bind(name, value)
 
     def get_variable(self, name):
