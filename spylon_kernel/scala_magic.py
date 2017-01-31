@@ -6,6 +6,7 @@ from metakernel import MetaKernel
 from metakernel import option
 from metakernel.process_metakernel import TextOutput
 from tornado import ioloop, gen
+from textwrap import dedent
 
 from .scala_interpreter import get_scala_interpreter, ScalaException
 from . import scala_interpreter
@@ -18,15 +19,15 @@ class ScalaMagic(Magic):
     _interp : spylon_kernel.ScalaInterpreter
     """
 
-
     def __init__(self, kernel):
         super(ScalaMagic, self).__init__(kernel)
         self.retval = None
         self._interp = None
         self._is_complete_ready = False
+        self.spark_web_ui_url = ""
 
     def _get_scala_interpreter(self):
-        """
+        """Ensure that we have a scala interpreter around and set up the stdout/err handlers if needed.
 
         Returns
         -------
@@ -36,20 +37,32 @@ class ScalaMagic(Magic):
             assert isinstance(self.kernel, MetaKernel)
             self.kernel.Display("Intitializing scala interpreter....")
             self._interp = get_scala_interpreter()
-            self.kernel.Display("Scala interpreter initialized.")
             # Ensure that spark is available in the python session as well.
-            self.kernel.cell_magics['python'].env['spark'] = scala_interpreter.spark_session
-            # self.Display("Registered spark session in scala and python context as `spark`")
-            self._initialize_pipes()
+            self.kernel.cell_magics['python'].env['spark'] = self._interp.spark_session
+            self.kernel.cell_magics['python'].env['sc'] = self._interp.sc
+
+            sc = self._interp.sc
+            self.kernel.Display(TextOutput(dedent("""\
+                {webui}
+                Spark context available as 'sc' (master = {master}, app id = {app_id}
+                Spark context available as 'sc'"
+                """.format(
+                master=sc.master,
+                app_id=sc.applicationId,
+                webui=self._interp.web_ui_url
+                )
+            )))
+
             self._is_complete_ready = True
             self._interp.register_stdout_handler(self.kernel.Write)
             self._interp.register_stderr_handler(self.kernel.Error)
+            # Set up the callbacks
+            self._initialize_pipes()
         return self._interp
 
     def _initialize_pipes(self):
+        self.kernel.log.info("Starting STDOUT/ERR callback")
         ioloop.IOLoop.current().spawn_callback(self._loop_alive)
-        # self._poll_file, STDOUT, self.Write)
-        # ioloop.IOLoop.current().spawn_callback(self._poll_file, STDERR, self.Error)
 
     @gen.coroutine
     def _loop_alive(self):
@@ -97,7 +110,6 @@ class ScalaMagic(Magic):
             eclass, _, emessage = first.partition(':')
             from metakernel import ExceptionWrapper
             return ExceptionWrapper(eclass, emessage, tb[1:])
-            #return self.kernel.Error(e.scala_message)
 
     @option(
         "-e", "--eval_output", action="store_true", default=False,
@@ -130,7 +142,6 @@ class ScalaMagic(Magic):
         """
         if self.code.strip():
             if eval_output:
-                # TODO: Validate this works?
                 self.eval(self.code, False)
                 # self.code = str(self.env["retval"]) if ("retval" in self.env and
                 #                                         self.env["retval"] != None) else ""
@@ -150,7 +161,6 @@ class ScalaMagic(Magic):
 
     def get_completions(self, info):
         intp = self._get_scala_interpreter()
-        # raise Exception(repr(info))
         c = intp.complete(info['code'], info['help_pos'])
 
         # Find common bits in the middle

@@ -9,13 +9,14 @@ from traitlets import Instance, Any
 from spylon_kernel.scala_interpreter import ScalaException, SparkInterpreter
 from .init_spark_magic import InitSparkMagic
 from .scala_magic import ScalaMagic
+from ._version import get_versions
 
 
 class SpylonKernel(MetaKernel):
     implementation = 'spylon-kernel'
-    implementation_version = '1.0'
+    implementation_version = get_versions()['version']
     language = 'scala'
-    language_version = '0.1'
+    language_version = '2.11'
     banner = "spylon-kernel - evaluates Scala statements and expressions."
     language_info = {
         'mimetype': 'text/x-scala',
@@ -54,6 +55,7 @@ class SpylonKernel(MetaKernel):
 
     @property
     def scala_interpreter(self):
+        # noinspection PyProtectedMember
         intp = self._scalamagic._get_scala_interpreter()
         assert isinstance(intp, SparkInterpreter)
         return intp
@@ -82,7 +84,6 @@ class SpylonKernel(MetaKernel):
             return intp.last_result()
 
     def do_execute_direct(self, code, silent=False):
-
         try:
             res = self._scalamagic.eval(code.strip(), raw=False)
             if res:
