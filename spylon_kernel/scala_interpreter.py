@@ -35,6 +35,8 @@ def init_spark_session(conf: spylon.spark.SparkConfiguration=None, application_n
     spark_jvm_helpers = SparkJVMHelpers(spark_session._sc)
 
 
+
+
 # noinspection PyProtectedMember
 def initialize_scala_interpreter():
     """
@@ -103,12 +105,8 @@ def initialize_scala_interpreter():
     def start_imain():
         intp = jvm.scala.tools.nsc.interpreter.IMain(settings, jprintWriter)
         intp.initializeSynchronous()
-        # TODO : Redirect stdout / stderr to a known pair of files that we can watch.
-        """
-        System.setOut(new PrintStream(new File("output-file.txt")));
-        """
 
-        # Copied directly from Spark
+        # Ensure that sc and spark are bound in the interpreter context.
         intp.interpret("""
             @transient val spark = if (org.apache.spark.repl.Main.sparkSession != null) {
                 org.apache.spark.repl.Main.sparkSession
@@ -117,21 +115,6 @@ def initialize_scala_interpreter():
               }
             @transient val sc = {
               val _sc = spark.sparkContext
-              if (_sc.getConf.getBoolean("spark.ui.reverseProxy", false)) {
-                val proxyUrl = _sc.getConf.get("spark.ui.reverseProxyUrl", null)
-                if (proxyUrl != null) {
-                  println(s"Spark Context Web UI is available at ${proxyUrl}/proxy/${_sc.applicationId}")
-                } else {
-                  println(s"Spark Context Web UI is available at Spark Master Public URL")
-                }
-              } else {
-                _sc.uiWebUrl.foreach {
-                  webUrl => println(s"Spark context Web UI available at ${webUrl}")
-                }
-              }
-              println("Spark context available as 'sc' " +
-                s"(master = ${_sc.master}, app id = ${_sc.applicationId}).")
-              println("Spark session available as 'spark'.")
               _sc
             }
             """)
@@ -143,7 +126,6 @@ def initialize_scala_interpreter():
         return intp
 
     imain = start_imain()
-
     return SparkInterpreter(jvm, imain, bytes_out)
 
 
@@ -161,22 +143,43 @@ class ScalaException(Exception):
 
 tOutputHandler = Callable[[List[Any]], None]
 
+
 class SparkInterpreter(object):
+    """Wrapper for a scala interpreter.
+
+    Notes
+    -----
+    Users should not instantiate this class themselves.  Use `get_scala_interpreter` instead.
+
+    Parameters
+    ----------
+    jvm : py4j.java_gateway.JVMView
+    jimain : py4j.java_gateway.JavaObject
+        Java object representing an instance of `scala.tools.nsc.interpreter.IMain`
+    jbyteout : py4j.java_gateway.JavaObject
+        Java object representing an instance of `org.apache.commons.io.output.ByteArrayOutputStream`
+        This is used to return output data from the REPL.
+    loop : asyncio.AbstractEventLoop, optional
+        Asyncio eventloop
+
+    """
     executor = ThreadPoolExecutor(4)
 
-    def __init__(self, jvm, jiloop, jbyteout, loop: Union[None, asyncio.AbstractEventLoop]=None ):
+    def __init__(self, jvm, jimain, jbyteout, loop: Union[None, asyncio.AbstractEventLoop]=None):
+        self.spark_session = spark_session
+        # noinspection PyProtectedMember
+        self.sc = spark_session._sc
         self._jcompleter = None
         self.jvm = jvm
-        self.jiloop = jiloop
+        self.jimain = jimain
         if loop is None:
             # TODO: We may want to use new_event_loop here to avoid stopping and starting the main one.
             loop = asyncio.get_event_loop()
         self.loop = loop
         self.log = logging.getLogger(self.__class__.__name__)
 
-        interpreterPkg = getattr(getattr(self.jvm.scala.tools.nsc.interpreter, 'package$'), "MODULE$")
-        # spark_jvm_helpers.import_scala_package_object("scala.tools.nsc.interpreter")
-        self.iMainOps = interpreterPkg.IMainOps(jiloop)
+        jinterpreter_package = getattr(getattr(self.jvm.scala.tools.nsc.interpreter, 'package$'), "MODULE$")
+        self.iMainOps = jinterpreter_package.IMainOps(jimain)
         self.jbyteout = jbyteout
 
         tempdir = tempfile.mkdtemp()
@@ -184,9 +187,7 @@ class SparkInterpreter(object):
         self.tempdir = tempdir
         # Handlers for dealing with stout and stderr.  This allows us to insert additional behavior for magics
         self._stdout_handlers = []
-        # self.register_stdout_handler(lambda *args: print(*args, file=sys.stdout))
         self._stderr_handlers = []
-        # self.register_stderr_handler(lambda *args: print(*args, file=sys.stderr))
         self._initialize_stdout_err()
 
     def register_stdout_handler(self, handler: tOutputHandler):
@@ -200,7 +201,8 @@ class SparkInterpreter(object):
         stderr_file = os.path.abspath(os.path.join(self.tempdir, 'stderr'))
         # Start up the pipes on the JVM side
 
-        self.log.critical("Before Java redirected")
+        self.log.info("Before Java redirected")
+        self.log.debug("stdout/err redirected to %s", self.tempdir)
         code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
         code = '\n'.join([
             'import java.io.{PrintStream, FileOutputStream, File}',
@@ -209,7 +211,7 @@ class SparkInterpreter(object):
             code.format(pipe="Err", filename=pathlib.Path(stderr_file).as_uri())
         ])
         o = self.interpret(code)
-        self.log.critical("Console redirected")
+        self.log.info("Console redirected, %s", o)
 
         self.loop.create_task(self._poll_file(stdout_file, self.handle_stdout))
         self.loop.create_task(self._poll_file(stderr_file, self.handle_stderr))
@@ -235,14 +237,14 @@ class SparkInterpreter(object):
         while True:
             line = fd.readline()
             if line:
-                # self.log.critical("READ LINE from %s, %s", filename, line)
+                # processing a line from the file and running our processing function.
                 fn(line)
                 # self.log.critical("AFTER PUSH")
                 await asyncio.sleep(0, loop=self.loop)
             else:
                 await asyncio.sleep(0.01, loop=self.loop)
 
-    def interpret_sync(self, code: str, synthetic=False):
+    def _interpret_sync(self, code: str, synthetic=False):
         """Interpret a block of scala code.
 
         If you want to get the result as a python object, follow this will a call to `last_result()`
@@ -258,7 +260,7 @@ class SparkInterpreter(object):
             String output from the scala REPL.
         """
         try:
-            res = self.jiloop.interpret(code, synthetic)
+            res = self.jimain.interpret(code, synthetic)
             pyres = self.jbyteout.toByteArray().decode("utf-8")
             # The scala interpreter returns a sentinel case class member here which is typically matched via
             # pattern matching.  Due to it having a very long namespace, we just resort to simple string matching here.
@@ -273,17 +275,38 @@ class SparkInterpreter(object):
         finally:
             self.jbyteout.reset()
 
-    async def interpret_async(self, code: str, future: Future):
+    async def _interpret_async(self, code: str, future: Future):
+        """Async execute for running a block of scala code.
+
+        Parameters
+        ----------
+        code : str
+        future : Future
+            future used to hold the result of the computation.
+        """
         try:
-            result = await self.loop.run_in_executor(self.executor, self.interpret_sync, code)
+            result = await self.loop.run_in_executor(self.executor, self._interpret_sync, code)
             future.set_result(result)
         except Exception as e:
             future.set_exception(e)
         return
 
     def interpret(self, code: str):
+        """Interpret a block of scala code.
+
+        If you want to get the result as a python object, follow this will a call to `last_result()`
+
+        Parameters
+        ----------
+        code : str
+
+        Returns
+        -------
+        reploutput : str
+            String output from the scala REPL.
+        """
         fut = asyncio.Future(loop=self.loop)
-        asyncio.ensure_future(self.interpret_async(code, fut), loop=self.loop)
+        asyncio.ensure_future(self._interpret_async(code, fut), loop=self.loop)
         res = self.loop.run_until_complete(fut)
         return res
 
@@ -298,17 +321,19 @@ class SparkInterpreter(object):
         object
         """
         # TODO : when evaluating multiline expressions this returns the first result
-        lr = self.jiloop.lastRequest()
+        lr = self.jimain.lastRequest()
         res = lr.lineRep().call("$result", spark_jvm_helpers.to_scala_list([]))
         return res
 
     def bind(self, name: str, value: Any, jtyp: str="Any"):
-        """
+        """Set a variable in the scala repl environment to a python valued type.
 
         Parameters
         ----------
-        varname : str
+        name : str
         value : Any
+        jtyp : str
+            String representation of the Java type that we want to cast this as.
 
         """
         modifiers = spark_jvm_helpers.to_scala_list(["@transient"])
@@ -319,13 +344,13 @@ class SparkInterpreter(object):
             int, str, bytes, bool, list, dict, JavaClass, JavaMember, JavaObject
         )
         if isinstance(value, compatible_types):
-            self.jiloop.bind(name, "Any", value, modifiers)
+            self.jimain.bind(name, "Any", value, modifiers)
 
     @property
     def jcompleter(self):
         if self._jcompleter is None:
             jClass = self.jvm.scala.tools.nsc.interpreter.PresentationCompilerCompleter
-            self._jcompleter = jClass(self.jiloop)
+            self._jcompleter = jClass(self.jimain)
         return self._jcompleter
 
     def complete(self, code: str, pos: int) -> List[str]:
@@ -359,7 +384,7 @@ class SparkInterpreter(object):
             One of 'complete', 'incomplete' or 'invalid'
         """
         try:
-            res = self.jiloop.parse().apply(code)
+            res = self.jimain.parse().apply(code)
             output_class = res.getClass().getName()
             _, status = output_class.rsplit("$", 1)
             if status == 'Success':
@@ -398,7 +423,7 @@ class SparkInterpreter(object):
         return scala_type[-1]
 
     def printHelp(self):
-        return self.jiloop.helpSummary()
+        return self.jimain.helpSummary()
 
 
 def get_scala_interpreter():
