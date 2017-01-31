@@ -52,12 +52,17 @@ def get_web_ui_url(sc):
     if conf.getBoolean("spark.ui.reverseProxy", False):
         proxy_url = conf.get("spark.ui.reverseProxyUrl", "")
         if proxy_url:
-            web_ui_url = "Spark Context Web UI is available at ${proxy_url}/proxy/${sc.applicationId}".format(
-                proxy_url=proxy_url, sc=sc)
+            web_ui_url = "Spark Context Web UI is available at ${proxy_url}/proxy/${application_id}".format(
+                proxy_url=proxy_url, application_id=sc.applicationId)
         else:
             web_ui_url = "Spark Context Web UI is available at Spark Master Public URL"
     else:
-        web_ui_url = sc.uiWebUrl
+        # For spark 2.0 compatibility we have to retrieve this from the scala side.
+        joption = sc._jsc.sc().uiWebUrl()
+        if joption.isDefined():
+            web_ui_url = joption.get()
+        else:
+            web_ui_url = ""
 
     # Legacy compatible version for YARN
     yarn_proxy_spark_property = "spark.org.apache.hadoop.yarn.server.webproxy.amfilter.AmIpFilter.param.PROXY_URI_BASES"
