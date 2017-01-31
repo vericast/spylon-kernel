@@ -35,7 +35,7 @@ class ScalaMagic(Magic):
         """
         if self._interp is None:
             assert isinstance(self.kernel, MetaKernel)
-            self.kernel.Display("Intitializing scala interpreter....")
+            self.kernel.Display(TextOutput("Intitializing scala interpreter...."))
             self._interp = get_scala_interpreter()
             # Ensure that spark is available in the python session as well.
             self.kernel.cell_magics['python'].env['spark'] = self._interp.spark_session
@@ -43,9 +43,9 @@ class ScalaMagic(Magic):
 
             sc = self._interp.sc
             self.kernel.Display(TextOutput(dedent("""\
-                {webui}
-                Spark context available as 'sc' (master = {master}, app id = {app_id}
-                Spark context available as 'sc'"
+                Web ui available at {webui}
+                Spark context available as 'sc' (master = {master}, app id = {app_id})
+                Spark session available as 'spark'
                 """.format(
                 master=sc.master,
                 app_id=sc.applicationId,
