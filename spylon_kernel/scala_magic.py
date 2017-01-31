@@ -41,6 +41,18 @@ class ScalaMagic(Magic):
             self.kernel.cell_magics['python'].env['spark'] = self._interp.spark_session
             self.kernel.cell_magics['python'].env['sc'] = self._interp.sc
 
+            sc = self._interp.sc
+            self.kernel.Display(TextOutput(dedent("""\
+                {webui}
+                Spark context available as 'sc' (master = {master}, app id = {app_id}
+                Spark context available as 'sc'"
+                """.format(
+                master=sc.master,
+                app_id=sc.applicationId,
+                webui=self._interp.web_ui_url
+                )
+            )))
+
             self._is_complete_ready = True
             self._interp.register_stdout_handler(self.kernel.Write)
             self._interp.register_stderr_handler(self.kernel.Error)

@@ -35,6 +35,36 @@ def init_spark_session(conf: spylon.spark.SparkConfiguration=None, application_n
     spark_jvm_helpers = SparkJVMHelpers(spark_session._sc)
 
 
+def get_web_ui_url(sc):
+    """Get the web ui for a spark context
+
+    Parameters
+    ----------
+    sc : SparkContext
+
+    Returns
+    -------
+    url : str
+    """
+    # Dig into the java spark conf to actually be able to resolve the spark configuration
+    # noinspection PyProtectedMember
+    conf = sc._jsc.getConf()
+    if conf.getBoolean("spark.ui.reverseProxy", False):
+        proxy_url = conf.get("spark.ui.reverseProxyUrl", "")
+        if proxy_url:
+            web_ui_url = "Spark Context Web UI is available at ${proxy_url}/proxy/${sc.applicationId}".format(
+                proxy_url=proxy_url, sc=sc)
+        else:
+            web_ui_url = "Spark Context Web UI is available at Spark Master Public URL"
+    else:
+        web_ui_url = sc.uiWebUrl
+
+    # Legacy compatible version for YARN
+    yarn_proxy_spark_property = "spark.org.apache.hadoop.yarn.server.webproxy.amfilter.AmIpFilter.param.PROXY_URI_BASES"
+    if sc.master.startswith("yarn"):
+        web_ui_url = conf.get(yarn_proxy_spark_property)
+
+    return web_ui_url
 
 
 # noinspection PyProtectedMember
@@ -169,6 +199,7 @@ class SparkInterpreter(object):
         self.spark_session = spark_session
         # noinspection PyProtectedMember
         self.sc = spark_session._sc
+        self.web_ui_url = get_web_ui_url(self.sc)
         self._jcompleter = None
         self.jvm = jvm
         self.jimain = jimain
