@@ -2,58 +2,45 @@
 [![Build Status](https://travis-ci.org/maxpoint/spylon-kernel.svg?branch=master)](https://travis-ci.org/maxpoint/spylon-kernel)
 [![codecov](https://codecov.io/gh/maxpoint/spylon-kernel/branch/master/graph/badge.svg)](https://codecov.io/gh/maxpoint/spylon-kernel)
 
-This is a beta level concept for using metakernel in combination with py4j to make a simpler kernel for scala.
+A Scala [Jupyter kernel](http://jupyter.readthedocs.io/en/latest/projects/kernels.html) that uses [metakernel](https://github.com/Calysto/metakernel) in combination with [py4j](https://www.py4j.org/).
 
-## Installation
+## Prerequisites
 
-On python 3.5+
+* Apache Spark 2.1.1+ compiled for Scala 2.11
+* Jupyter Notebook
+* Python 3.5+
 
-:exclamation: Due to [SPARK-19019](https://issues.apache.org/jira/browse/SPARK-19019) Apache Spark does not current work
- in Python 3.6
+## Install
+
+You can install the spylon-kernel package using `pip` or `conda`.
 
 ```bash
-pip install .
+pip install spylon-kernel
+# or
+conda install -c conda-forge spylon-kernel
 ```
 
-For runtime purposes you need to have Apache Spark installed.  Minimum required is Apache Spark 2.0 compiled for Scala 2.11.
-See [examples](./examples/basic_example.ipynb) for how to configure your spark instance.
+## Using it as a Scala Kernel
 
-## Installing the jupyter kernel
+You can use spylon-kernel as Scala kernel for Jupyter Notebook. Do this when you want
+to work with Spark in Scala with a bit of Python code mixed in.
 
-```
+Create a kernel spec for Jupyter notebook by running the following command:
+
+```bash
 python -m spylon_kernel install
 ```
 
-## Using the kernel
+Launch `jupyter notebook` and you should see a `spylon-kernel` as an option
+in the *New* dropdown menu.
 
-The scala spark metakernel provides a scala kernel by default. On the first execution of scala code, a spark session
-will be constructed so that a user can interact with the interpreter.
+See [the basic example notebook](./examples/basic_example.ipynb) for information
+about how to intiialize a Spark session and use it both in Scala and Python.
 
-### Customizing the spark context
+## Using it as an IPython Magic
 
-The launch arguments can be customized using the `%%init_spark` magic as follows
-
-```python
-%%init_spark
-launcher.jars = ["file://some/jar.jar"]
-launcher.master = "local[4]"
-launcher.conf.spark.executor.cores = 8
-```
-
-### Other languages
-
-Since this makes use of metakernel you can evaluate normal python code using the `%%python` magic.  In addition once 
-the spark context has been created the `spark` variable will be added to your python environment.
-
-```python
-%%python
-df = spark.read.json("examples/src/main/resources/people.json")
-```
-
-## Using as a magic
-
-Spylon-kernel can be used as a magic in an existing ipykernel.  This is the recommended solution when you want to write
-relatively small blocks of scala.
+You can also use spylon-kernel as a magic in an IPython notebook. Do this when
+you want to mix a little bit of Scala into your primarily Python notebook.
 
 ```python
 from spylon_kernel import register_ipython_magics
@@ -66,10 +53,10 @@ val x = 8
 x
 ```
 
-## Using as a library
+## Using it as a Library
 
-If you just want to send a string of scala code to the interpreter and evaluate it you can
-do that too.
+Finally, you can use spylon-kernel as a Python library. Do this when you
+want to evaluate a string of Scala code in a Python script or shell.
 
 ```python
 from spylon_kernel import get_scala_interpreter
@@ -80,7 +67,7 @@ interp = get_scala_interpreter()
 interp.interpret("""
     val x = 8
     x
-    """)
+""")
 
 interp.last_result()
 ```
