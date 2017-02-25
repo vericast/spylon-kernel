@@ -8,6 +8,7 @@ A Scala [Jupyter kernel](http://jupyter.readthedocs.io/en/latest/projects/kernel
 
 * Apache Spark 2.1.1+ compiled for Scala 2.11
 * Jupyter Notebook
+* Python 3.5+
 
 ## Install
 
