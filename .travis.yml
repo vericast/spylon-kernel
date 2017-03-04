@@ -16,7 +16,7 @@ env:
 install:
   - pip install -r requirements.txt
   - pip install .
-  - pip install -r requirements-test.txt jedi==0.9
+  - pip install -r requirements-test.txt
   - python -m spylon_kernel install --user
 
 script:

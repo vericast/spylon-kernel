@@ -2,20 +2,15 @@ from setuptools import setup, find_packages
 import versioneer
 
 try:
-    try:
-        import pypandoc
-        long_description = pypandoc.convert('README.md', 'rst')
-    except ImportError:
-        long_description = open('README.md').read()
-    with open("README.rst", 'w') as fo:
-        fo.write(long_description)
-except:
-    pass
+    import pypandoc
+    long_description = pypandoc.convert('README.md', 'rst')
+except Exception:
+    long_description = open('README.md').read()
 
 setup(
     name='spylon-kernel',
     description='Jupyter metakernel for apache spark and scala',
-    long_description=open('README.rst').read(),
+    long_description=long_description,
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     url='http://github.com/maxpoint/spylon-kernel',

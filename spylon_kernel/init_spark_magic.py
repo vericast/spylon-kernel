@@ -1,13 +1,13 @@
+import logging
 import spylon.spark
 from metakernel import Magic
 from spylon_kernel.scala_interpreter import init_spark_session
 
 try:
     import jedi
-    from jedi import Interpreter
-    from jedi.api.helpers import completion_parts
-    from jedi.parser.user_context import UserContext
-except ImportError:
+    from jedi.api.helpers import get_on_completion_name
+    from jedi import common
+except ImportError as ex:
     jedi = None
 
 
@@ -17,6 +17,7 @@ class InitSparkMagic(Magic):
         super(InitSparkMagic, self).__init__(kernel)
         self.env = globals()['__builtins__'].copy()
         self.env['launcher'] = spylon.spark.launcher.SparkConfiguration()
+        self.log = logging.Logger("InitSparkMagic")
 
     def cell_init_spark(self):
         """
@@ -48,16 +49,19 @@ class InitSparkMagic(Magic):
             return []
 
         text = info['code']
-        interpreter = Interpreter(text, [self.env])
-
         position = (info['line_num'], info['column'])
-        path = UserContext(text, position).get_path_until_cursor()
-        path, dot, like = completion_parts(path)
-        before = text[:len(text) - len(like)]
+        interpreter = jedi.Interpreter(text, [self.env])
 
+        lines = common.splitlines(text)
+        name = get_on_completion_name(
+            interpreter._get_module_node(),
+            lines,
+            position
+        )
+
+        before = text[:len(text) - len(name)]
         completions = interpreter.completions()
         completions = [before + c.name_with_symbols for c in completions]
-
         return [c[info['start']:] for c in completions]
 
 
