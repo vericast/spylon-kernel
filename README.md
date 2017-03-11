@@ -6,9 +6,11 @@ A Scala [Jupyter kernel](http://jupyter.readthedocs.io/en/latest/projects/kernel
 
 ## Prerequisites
 
-* Apache Spark 2.1.1+ compiled for Scala 2.11
+* Apache Spark 2.1 compiled for Scala 2.11
 * Jupyter Notebook
-* Python 3.5+
+* Python 3.5
+
+Note: [Spark 2.1.1+ will have support for Python 3.6](https://issues.apache.org/jira/browse/SPARK-19019)
 
 ## Install
 
