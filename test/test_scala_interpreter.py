@@ -80,3 +80,8 @@ def test_spark_dataset(scala_interpreter):
 def test_web_ui_url(scala_interpreter):
     url = get_web_ui_url(scala_interpreter.sc)
     assert url != ""
+
+
+def test_anon_func(scala_interpreter):
+    result = scala_interpreter.interpret("sc.parallelize(0 until 10).map(x => x * 2).sum().toInt")
+    assert result.strip().endswith(str(sum(x * 2 for x in range(10))))

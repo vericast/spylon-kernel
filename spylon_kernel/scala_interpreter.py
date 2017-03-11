@@ -1,13 +1,14 @@
 import asyncio
 import atexit
+import logging
 import os
+import pathlib
 import shutil
 import signal
 import tempfile
-import logging
-import pathlib
-from concurrent.futures import ThreadPoolExecutor
+
 from asyncio import Future
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Union, List, Any
 
 import spylon.spark
@@ -17,15 +18,42 @@ spark_jvm_helpers = None
 scala_intp = None
 
 
-def init_spark_session(conf: spylon.spark.SparkConfiguration=None, application_name: str="ScalaMetaKernel"):
+def init_spark_session(conf: spylon.spark.SparkConfiguration=None,
+                       application_name: str="ScalaMetaKernel"):
+    """Initialize the Spark session.
+
+    Parameters
+    ----------
+    conf: optional
+        Spark configuration to apply to the session
+    application_name: optional
+        Name to give the session
+
+
+    """
     # Ensure we have the correct classpath settings for the repl to work.
     os.environ.setdefault('SPARK_SUBMIT_OPTS', '-Dscala.usejavacp=true')
+
     global spark_session
     # If we have already initialized a spark session. Don't carry on.
     if spark_session:
         return
     if conf is None:
         conf = spylon.spark.launcher.SparkConfiguration()
+    # SparkContext will detect this configuration and register it with the RpcEnv's
+    # file server, setting spark.repl.class.uri to the actual URI for executors to
+    # use. This is sort of ugly but since executors are started as part of SparkContext
+    # initialization in certain cases, there's an initialization order issue that prevents
+    # this from being set after SparkContext is instantiated.
+    output_dir = os.path.abspath(tempfile.mkdtemp())
+
+    def cleanup():
+        shutil.rmtree(output_dir, True)
+
+    atexit.register(cleanup)
+    signal.signal(signal.SIGTERM, cleanup)
+    conf.conf.set("spark.repl.class.outputDir", output_dir)
+
     spark_context = conf.spark_context(application_name)
     from pyspark.sql import SparkSession
     spark_session = SparkSession(spark_context)
@@ -103,22 +131,9 @@ def initialize_scala_interpreter():
 
     execUri = jvm.System.getenv("SPARK_EXECUTOR_URI")
     jconf.setIfMissing("spark.app.name", "Spark shell")
-    # SparkContext will detect this configuration and register it with the RpcEnv's
-    # file server, setting spark.repl.class.uri to the actual URI for executors to
-    # use. This is sort of ugly but since executors are started as part of SparkContext
-    # initialization in certain cases, there's an initialization order issue that prevents
-    # this from being set after SparkContext is instantiated.
-
-    output_dir = os.path.abspath(tempfile.mkdtemp())
-
-    def cleanup():
-        shutil.rmtree(output_dir, True)
-    atexit.register(cleanup)
-    signal.signal(signal.SIGTERM, cleanup)
-
-    jconf.set("spark.repl.class.outputDir", output_dir)
     if (execUri is not None):
-      jconf.set("spark.executor.uri", execUri)
+        jconf.set("spark.executor.uri", execUri)
+    output_dir = jconf.get("spark.repl.class.outputDir")
 
     jars = jvm.org.apache.spark.util.Utils.getUserJars(jconf, True).mkString(":")
     interpArguments = spark_jvm_helpers.to_scala_list(
@@ -130,7 +145,8 @@ def initialize_scala_interpreter():
     settings = jvm.scala.tools.nsc.Settings()
     settings.processArguments(interpArguments, True)
 
-    # Since we have already instantiated our spark context on the python side, set it in the Main repl class as well
+    # Since we have already instantiated our spark context on the python side,
+    # set it in the Main repl class as well
     Main = jvm.org.apache.spark.repl.Main
     jspark_session = spark_session._jsparkSession
     # equivalent to Main.sparkSession = jspark_session
@@ -171,10 +187,10 @@ def _scala_seq_to_py(jseq):
 
 
 class ScalaException(Exception):
-
     def __init__(self, scala_message, *args, **kwargs):
         super(ScalaException, self).__init__(scala_message, *args, **kwargs)
         self.scala_message = scala_message
+
 
 tOutputHandler = Callable[[List[Any]], None]
 
@@ -283,7 +299,8 @@ class SparkInterpreter(object):
     def _interpret_sync(self, code: str, synthetic=False):
         """Interpret a block of scala code.
 
-        If you want to get the result as a python object, follow this will a call to `last_result()`
+        If you want to get the result as a python object, follow this with a
+        call to `last_result()`
 
         Parameters
         ----------
@@ -298,8 +315,10 @@ class SparkInterpreter(object):
         try:
             res = self.jimain.interpret(code, synthetic)
             pyres = self.jbyteout.toByteArray().decode("utf-8")
-            # The scala interpreter returns a sentinel case class member here which is typically matched via
-            # pattern matching.  Due to it having a very long namespace, we just resort to simple string matching here.
+            # The scala interpreter returns a sentinel case class member here
+            # which is typically matched via pattern matching.  Due to it
+            # having a very long namespace, we just resort to simple string
+            # matching here.
             result = res.toString()
             if result == "Success":
                 return pyres
