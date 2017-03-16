@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+from metakernel import ExceptionWrapper
 from metakernel import Magic
 from metakernel import MetaKernel
 from metakernel import option
@@ -91,6 +92,20 @@ class ScalaMagic(Magic):
         self.eval(code, True)
 
     def eval(self, code, raw):
+        """Evaluate Scala code.
+
+        Parameters
+        ----------
+        code: str
+            Code to execute
+        raw: bool
+            Raw result of the eval, not wrapped by metakernel classes
+
+        Returns
+        -------
+        metakernel.process_metakernel.TextOutput or metakernel.ExceptionWrapper or
+        the raw result of the evaluation
+        """
         intp = self._get_scala_interpreter()
         try:
             res = intp.interpret(code.strip())
@@ -103,13 +118,12 @@ class ScalaMagic(Magic):
         except ScalaException as e:
             resp = self.kernel.kernel_resp
             resp['status'] = 'error'
-
             tb = e.scala_message.split('\n')
             first = tb[0]
             assert isinstance(first, str)
             eclass, _, emessage = first.partition(':')
-            from metakernel import ExceptionWrapper
-            return ExceptionWrapper(eclass, emessage, tb[1:])
+            # Include the entire traceback for notebook use
+            return ExceptionWrapper(eclass, emessage, tb)
 
     @option(
         "-e", "--eval_output", action="store_true", default=False,
