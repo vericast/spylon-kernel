@@ -30,5 +30,11 @@ notebook: ## Make a development notebook
 nuke: ## Make clean + remove conda env
 	-conda env remove -n $(ENV) -y
 
+sdist: ## Make a source distribution
+	$(SA) $(ENV) && python setup.py sdist
+
+release: clean ## Make a pypi release of a tagged build
+	$(SA) $(ENV) && python setup.py sdist register upload
+
 test: ## Make a test run
 	$(SA) $(ENV) && coverage run run_tests.py -vrsx --capture=sys --color=yes

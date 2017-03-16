@@ -73,3 +73,18 @@ interp.interpret("""
 
 interp.last_result()
 ```
+
+# Release Process
+
+Push a tag and submit a source dist to PyPI.
+
+```
+git commit -m 'REL: 0.2.1' --allow-empty
+git tag -a 0.2.1 # and enter the same message as the commit
+git push origin master # or send a PR
+
+# if everything builds / tests cleanly, release to pypi
+make release
+```
+
+Then update https://github.com/conda-forge/spylon-kernel-feedstock.
