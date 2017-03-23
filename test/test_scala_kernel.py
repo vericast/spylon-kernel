@@ -87,6 +87,15 @@ def test_init_magic(spylon_kernel):
     spylon_kernel.do_execute(code)
 
 
+def test_init_magic_with_appname(spylon_kernel):
+    code = dedent("""\
+        %%init_spark
+        application_name = 'Dave'
+        launcher.conf.spark.executor.cores = 2
+        """)
+    spylon_kernel.do_execute(code)
+
+
 def test_init_magic_completion(spylon_kernel):
     code = dedent("""\
         %%init_spark

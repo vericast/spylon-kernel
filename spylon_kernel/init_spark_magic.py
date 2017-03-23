@@ -16,6 +16,7 @@ class InitSparkMagic(Magic):
     def __init__(self, kernel):
         super(InitSparkMagic, self).__init__(kernel)
         self.env = globals()['__builtins__'].copy()
+        self.env['application_name'] = None
         self.env['launcher'] = spylon.spark.launcher.SparkConfiguration()
         self.log = logging.Logger("InitSparkMagic")
 
@@ -25,6 +26,7 @@ class InitSparkMagic(Magic):
 
         Example:
             %%init_spark
+            application_name = 'My Fancy App'
             launcher.jars = ["file://some/jar.jar"]
             launcher.master = "local[4]"
             launcher.conf.spark.executor.cores = 8
@@ -37,8 +39,9 @@ class InitSparkMagic(Magic):
 
         globals_dict = self.env
         exec(self.code, globals_dict)
+        application_name = globals_dict['application_name']
         conf = globals_dict['launcher']
-        init_spark_session(conf)
+        init_spark_session(conf, application_name=application_name)
         self.evaluate = False
         self.kernel.Display()
 

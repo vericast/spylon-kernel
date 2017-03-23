@@ -17,9 +17,11 @@ spark_session = None
 spark_jvm_helpers = None
 scala_intp = None
 
+DEFAULT_APPLICATION_NAME = "spylon-kernel"
+
 
 def init_spark_session(conf: spylon.spark.SparkConfiguration=None,
-                       application_name: str="ScalaMetaKernel"):
+                       application_name: str=None):
     """Initialize the Spark session.
 
     Parameters
@@ -28,8 +30,6 @@ def init_spark_session(conf: spylon.spark.SparkConfiguration=None,
         Spark configuration to apply to the session
     application_name: optional
         Name to give the session
-
-
     """
     # Ensure we have the correct classpath settings for the repl to work.
     os.environ.setdefault('SPARK_SUBMIT_OPTS', '-Dscala.usejavacp=true')
@@ -40,6 +40,8 @@ def init_spark_session(conf: spylon.spark.SparkConfiguration=None,
         return
     if conf is None:
         conf = spylon.spark.launcher.SparkConfiguration()
+    if application_name is None:
+        application_name = DEFAULT_APPLICATION_NAME
     # SparkContext will detect this configuration and register it with the RpcEnv's
     # file server, setting spark.repl.class.uri to the actual URI for executors to
     # use. This is sort of ugly but since executors are started as part of SparkContext
