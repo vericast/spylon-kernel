@@ -17,9 +17,11 @@ spark_session = None
 spark_jvm_helpers = None
 scala_intp = None
 
+DEFAULT_APPLICATION_NAME = "spylon-kernel"
+
 
 def init_spark_session(conf: spylon.spark.SparkConfiguration=None,
-                       application_name: str="ScalaMetaKernel"):
+                       application_name: str=DEFAULT_APPLICATION_NAME):
     """Initialize the Spark session.
 
     Parameters
