@@ -1,7 +1,7 @@
 import logging
 import spylon.spark
 from metakernel import Magic
-from spylon_kernel.scala_interpreter import init_spark_session, DEFAULT_APPLICATION_NAME
+from spylon_kernel.scala_interpreter import init_spark_session
 
 try:
     import jedi
@@ -41,7 +41,7 @@ class InitSparkMagic(Magic):
         exec(self.code, globals_dict)
         application_name = globals_dict['application_name']
         conf = globals_dict['launcher']
-        init_spark_session(conf, application_name=application_name or DEFAULT_APPLICATION_NAME)
+        init_spark_session(conf, application_name=application_name)
         self.evaluate = False
         self.kernel.Display()
 
