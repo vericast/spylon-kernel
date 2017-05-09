@@ -1,7 +1,9 @@
+"""Metakernel magic for configuring and automatically initializing a Spark session."""
 import logging
 import spylon.spark
+
 from metakernel import Magic
-from spylon_kernel.scala_interpreter import init_spark_session
+from .scala_interpreter import init_spark_session
 
 try:
     import jedi
@@ -12,7 +14,16 @@ except ImportError as ex:
 
 
 class InitSparkMagic(Magic):
+    """Cell magic that supports configuration property autocompletion and
+    initializes a Spark session.
 
+    Attributes
+    ----------
+    env : __builtins__
+        Copy of the Python builtins
+    log : logging.Logger
+        Logger for this instance
+    """
     def __init__(self, kernel):
         super(InitSparkMagic, self).__init__(kernel)
         self.env = globals()['__builtins__'].copy()
@@ -21,33 +32,42 @@ class InitSparkMagic(Magic):
         self.log = logging.Logger("InitSparkMagic")
 
     def cell_init_spark(self):
+        """Starts a SparkContext with a custom configuration defined
+        using Python code.
+
+        Includes a `spylon.spark.launcher.SparkConfiguration` instance
+        in the variable `launcher`. Looks for an `application_name`
+        variable to use as the name of the Spark session.
+
+        Example
+        -------
+        %%init_spark
+        application_name = "My Fancy App"
+        launcher.jars = ["file://some/jar.jar"]
+        launcher.master = "local[4]"
+        launcher.conf.spark.executor.cores = 8
         """
-        %%init_spark - start up a spark context with a custom configuration
-
-        Example:
-            %%init_spark
-            application_name = 'My Fancy App'
-            launcher.jars = ["file://some/jar.jar"]
-            launcher.master = "local[4]"
-            launcher.conf.spark.executor.cores = 8
-
-        This will evaluate the launcher args using spylon.
-        """
-        if "__builtins__" not in self.env:
-            # __builtins__ get generated after an eval:
-            eval("1", self.env)
-
-        globals_dict = self.env
-        exec(self.code, globals_dict)
-        application_name = globals_dict['application_name']
-        conf = globals_dict['launcher']
-        init_spark_session(conf, application_name=application_name)
+        # Evaluate the cell contents as Python
+        exec(self.code, self.env)
+        # Use the launcher and application_name as arguments to spylon to
+        # initialize a spark session
+        init_spark_session(conf=self.env['launcher'],
+                           application_name=self.env['application_name'])
+        # Do not evaluate the cell contents using the kernel
         self.evaluate = False
-        self.kernel.Display()
 
     def get_completions(self, info):
-        """Get Python completions."""
-        # https://github.com/davidhalter/jedi/blob/master/jedi/utils.py
+        """Gets Python completions based on the current cursor position
+        within the %%init_spark cell.
+
+        Based on
+        https://github.com/Calysto/metakernel/blob/master/metakernel/magics/python_magic.py
+
+        Parameters
+        ----------
+        info : dict
+            Information about the current caret position
+        """
         if jedi is None:
             return []
 
@@ -66,7 +86,3 @@ class InitSparkMagic(Magic):
         completions = interpreter.completions()
         completions = [before + c.name_with_symbols for c in completions]
         return [c[info['start']:] for c in completions]
-
-
-def register_magics(kernel):
-    kernel.register_magics(InitSparkMagic)
