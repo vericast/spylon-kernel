@@ -130,17 +130,18 @@ def initialize_scala_interpreter():
 
     Returns
     -------
-    SparkInterpreter
+    ScalaInterpreter
     """
     # Initialize Spark first if it isn't already
     spark_session, spark_jvm_helpers = init_spark()
 
-    #
+    # Get handy JVM references
     jvm = spark_session._jvm
     jconf = spark_session._jsc.getConf()
     io = jvm.java.io
 
-    #
+    # Build a print writer that'll be used to get results from the
+    # Scala REPL
     bytes_out = jvm.org.apache.commons.io.output.ByteArrayOutputStream()
     jprint_writer = io.PrintWriter(bytes_out, True)
 
@@ -196,7 +197,7 @@ def initialize_scala_interpreter():
     # Clear the print writer stream
     bytes_out.reset()
 
-    return SparkInterpreter(jvm, intp, bytes_out)
+    return ScalaInterpreter(jvm, intp, bytes_out)
 
 
 def _scala_seq_to_py(jseq):
@@ -223,7 +224,7 @@ class ScalaException(Exception):
         self.scala_message = scala_message
 
 
-class SparkInterpreter(object):
+class ScalaInterpreter(object):
     """Wrapper for a Scala interpreter.
 
     Notes
@@ -582,7 +583,7 @@ def get_scala_interpreter():
 
     Returns
     -------
-    scala_intp : SparkInterpreter
+    scala_intp : ScalaInterpreter
     """
     global scala_intp
     if scala_intp is None:

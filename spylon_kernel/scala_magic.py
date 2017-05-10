@@ -32,7 +32,7 @@ class ScalaMagic(Magic):
 
         Returns
         -------
-        scala_intp : scala_interpreter.SparkInterpreter
+        scala_intp : scala_interpreter.ScalaInterpreter
         """
         if self._interp is None:
             assert isinstance(self.kernel, MetaKernel)
