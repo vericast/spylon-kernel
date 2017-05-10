@@ -3,7 +3,7 @@ import logging
 import spylon.spark
 
 from metakernel import Magic
-from .scala_interpreter import init_spark_session
+from .scala_interpreter import init_spark
 
 try:
     import jedi
@@ -29,7 +29,7 @@ class InitSparkMagic(Magic):
         self.env = globals()['__builtins__'].copy()
         self.env['application_name'] = None
         self.env['launcher'] = spylon.spark.launcher.SparkConfiguration()
-        self.log = logging.Logger("InitSparkMagic")
+        self.log = logging.Logger(self.__class__.__name__)
 
     def cell_init_spark(self):
         """Starts a SparkContext with a custom configuration defined
@@ -51,8 +51,8 @@ class InitSparkMagic(Magic):
         exec(self.code, self.env)
         # Use the launcher and application_name as arguments to spylon to
         # initialize a spark session
-        init_spark_session(conf=self.env['launcher'],
-                           application_name=self.env['application_name'])
+        init_spark(conf=self.env['launcher'],
+                   application_name=self.env['application_name'])
         # Do not evaluate the cell contents using the kernel
         self.evaluate = False
 
