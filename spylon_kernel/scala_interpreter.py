@@ -467,7 +467,7 @@ class SparkInterpreter(object):
         """
         # TODO : when evaluating multiline expressions this returns the first result
         lr = self.jimain.lastRequest()
-        res = lr.lineRep().call("$result", spark_jvm_helpers.to_scala_list([]))
+        res = lr.lineRep().call("$result", spark_state.spark_jvm_helpers.to_scala_list([]))
         return res
 
     def bind(self, name: str, value: Any, jtyp: str="Any"):

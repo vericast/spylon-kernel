@@ -91,4 +91,8 @@ ENV/
 # Rope project settings
 .ropeproject
 
+# Generated README
 README.rst
+
+# Extra development notebooks
+Untitled*.ipynb
