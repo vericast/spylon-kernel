@@ -21,8 +21,7 @@ install:
   - python -m spylon_kernel install --user
 
 script:
-  - coverage run run_tests.py -vrsx --capture=sys --color=yes
-  - coverage report -m
+  - python run_tests.py -vxrs --capture=sys --color=yes
   # Ensure installability
   - python setup.py sdist
   - pip install --no-use-wheel dist/*.tar.gz
