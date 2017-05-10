@@ -245,7 +245,7 @@ class SparkInterpreter(object):
     web_ui_url : str
         URL of the Spark web UI associated with this interpreter
     """
-    executor = ThreadPoolExecutor(4)
+    executor = ThreadPoolExecutor(1)
 
     def __init__(self, jvm, jimain, jbyteout, loop: Union[None, asyncio.AbstractEventLoop]=None):
         self.jvm = jvm
@@ -254,7 +254,8 @@ class SparkInterpreter(object):
         self.log = logging.getLogger(self.__class__.__name__)
 
         if loop is None:
-            # TODO: We may want to use new_event_loop here to avoid stopping and starting the main one.
+            # TODO: We may want to use new_event_loop here to avoid stopping
+            # and starting the main one.
             loop = asyncio.get_event_loop()
         self.loop = loop
 
@@ -406,7 +407,7 @@ class SparkInterpreter(object):
             elif result == 'Error':
                 raise ScalaException(pyres)
             elif result == 'Incomplete':
-                raise ScalaException(pyres)
+                raise ScalaException(pyres or '<console>: error: incomplete input')
             return pyres
         finally:
             self.jbyteout.reset()
