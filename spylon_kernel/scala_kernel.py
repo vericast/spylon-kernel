@@ -1,18 +1,17 @@
-from __future__ import absolute_import, print_function, division
-
+"""Jupyter Scala + Spark kernel built on Calysto/metakernel"""
 import sys
 
 from metakernel import MetaKernel
-from metakernel.magics.python_magic import PythonMagic
-from traitlets import Instance, Any
-
-from spylon_kernel.scala_interpreter import ScalaException, SparkInterpreter
 from .init_spark_magic import InitSparkMagic
+from .scala_interpreter import ScalaException, SparkInterpreter
 from .scala_magic import ScalaMagic
 from ._version import get_versions
 
 
 class SpylonKernel(MetaKernel):
+    """Jupyter kernel that supports code evaluation using the Scala REPL
+    via py4j.
+    """
     implementation = 'spylon-kernel'
     implementation_version = get_versions()['version']
     language = 'scala'
@@ -45,13 +44,6 @@ class SpylonKernel(MetaKernel):
         self.register_magics(ScalaMagic)
         self.register_magics(InitSparkMagic)
         self._scalamagic = self.line_magics['scala']
-        self._pythonmagic = self.line_magics['python']
-        # assert isinstance(self._scalamagic, ScalaMagic)
-        # assert isinstance(self._pythonmagic, PythonMagic)
-
-    @property
-    def pythonmagic(self):
-        return self._pythonmagic
 
     @property
     def scala_interpreter(self):
@@ -67,9 +59,10 @@ class SpylonKernel(MetaKernel):
         """
         Set a variable in the kernel language.
         """
-        # Since metakernel calls this to bind kernel into the remote space we don't actually want that to happen.
-        # Simplest is just to have this flag as None initially.
-        # Furthermore the metakernel will attempt to set things like _i1, _i, _ii etc.  These we dont want in the kernel
+        # Since metakernel calls this to bind kernel into the remote space we
+        # don't actually want that to happen. Simplest is just to have this
+        # flag as None initially. Furthermore the metakernel will attempt to
+        # set things like _i1, _i, _ii etc.  These we dont want in the kernel
         # for now.
         if self._scalamagic and (not name.startswith("_i")):
             self.scala_interpreter.bind(name, value)
@@ -121,18 +114,10 @@ class SpylonKernel(MetaKernel):
                 return {'status': 'complete', 'indent': ''}
             else:
                 return {'status': 'incomplete', 'indent': ''}
-        # The scala interpreter can take a while to be alive, only use the fancy method when we don't need to lazily
-        # instantiate the interpreter.
+        # The scala interpreter can take a while to be alive, only use the
+        # fancy method when we don't need to lazily instantiate the
+        # interpreter.
         status = self.scala_interpreter.is_complete(code)
-        # TODO: We can probably do a better job of detecting a good indent level here by making use of a code parser
-        #       such as pygments
+        # TODO: We can probably do a better job of detecting a good indent
+        # level here by making use of a code parser such as pygments
         return {'status': status, 'indent': ' ' * 4 if status == 'incomplete' else ''}
-
-
-# TODO: Comm api style thing.  Basically we just need a server listening on a port that we can push stuff to.
-# localhost:PORT/output
-# {
-#     "output_id": "string",
-#     "mimetype": "plain",
-#     "data": object()
-# }
