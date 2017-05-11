@@ -1,3 +1,4 @@
+"""Metakernel magic for evaluating cell code using a ScalaInterpreter."""
 from __future__ import absolute_import, division, print_function
 
 import os
@@ -14,62 +15,70 @@ from . import scala_interpreter
 
 
 class ScalaMagic(Magic):
-    """
+    """Line and cell magic that supports Scala code execution.
+
     Attributes
     ----------
     _interp : spylon_kernel.ScalaInterpreter
+    _is_complete_ready : bool
+        Guard for whether certain actions can be taken based on whether the
+        ScalaInterpreter is instantiated or not
+    retval : any
+        Last result from evaluating Scala code
     """
-
     def __init__(self, kernel):
         super(ScalaMagic, self).__init__(kernel)
         self.retval = None
         self._interp = None
         self._is_complete_ready = False
-        self.spark_web_ui_url = ""
 
     def _get_scala_interpreter(self):
-        """Ensure that we have a scala interpreter around and set up the stdout/err handlers if needed.
+        """Ensure that we have a scala interpreter around and set up the stdout/err
+        handlers if needed.
 
         Returns
         -------
-        scala_intp : scala_interpreter.SparkInterpreter
+        scala_intp : scala_interpreter.ScalaInterpreter
         """
         if self._interp is None:
             assert isinstance(self.kernel, MetaKernel)
-            self.kernel.Display(TextOutput("Intitializing scala interpreter...."))
+            self.kernel.Display(TextOutput("Intitializing Scala interpreter ..."))
             self._interp = get_scala_interpreter()
             # Ensure that spark is available in the python session as well.
             self.kernel.cell_magics['python'].env['spark'] = self._interp.spark_session
             self.kernel.cell_magics['python'].env['sc'] = self._interp.sc
 
+            # Display some information about the Spark session
             sc = self._interp.sc
             self.kernel.Display(TextOutput(dedent("""\
-                Web ui available at {webui}
-                Spark context available as 'sc' (master = {master}, app id = {app_id})
-                Spark session available as 'spark'
+                Spark Web UI available at {webui}
+                SparkContext available as 'sc' (version = {version}, master = {master}, app id = {app_id})
+                SparSsession available as 'spark'
                 """.format(
-                master=sc.master,
-                app_id=sc.applicationId,
-                webui=self._interp.web_ui_url
+                    version=sc.version,
+                    master=sc.master,
+                    app_id=sc.applicationId,
+                    webui=self._interp.web_ui_url
                 )
             )))
 
+            # Let down the guard: the interpreter is ready for use
             self._is_complete_ready = True
+
+            # Send stdout to the MetaKernel.Write method
+            # and stderr to MetaKernel.Error
             self._interp.register_stdout_handler(self.kernel.Write)
             self._interp.register_stderr_handler(self.kernel.Error)
-            # Set up the callbacks
-            self._initialize_pipes()
-        return self._interp
 
-    def _initialize_pipes(self):
-        self.kernel.log.info("Starting STDOUT/ERR callback")
-        ioloop.IOLoop.current().spawn_callback(self._loop_alive)
+            # Spwan an async loop that yields to the asyncio loop
+            ioloop.IOLoop.current().spawn_callback(self._loop_alive)
+
+        return self._interp
 
     @gen.coroutine
     def _loop_alive(self):
-        """This is a little hack to ensure that during the tornado eventloop we also run one iteration of the asyncio
-        eventloop.
-
+        """Coroutine that yields on an interval to allow other event
+        loops to run besides the `tornado.ioloop.IOLoop`.
         """
         loop = self._interp.loop
         while True:
@@ -78,28 +87,79 @@ class ScalaMagic(Magic):
             yield gen.sleep(0.01)
 
     def line_scala(self, *args):
-        """
-        %scala CODE - evaluate code as Scala
-        This line magic will evaluate the CODE (either expression or
-        statement) as Scala code.
+        """%scala CODE - evaluates a line of code as Scala
 
-        Examples:
-            %scala val x = 42
-            %scala import scala.math
-            %scala x + math.pi
+        Parameters
+        ----------
+        *args : list of string
+            Line magic arguments joined into a single-space separated string
+
+        Examples
+        --------
+        %scala val x = 42
+        %scala import scala.math
+        %scala x + math.pi
         """
         code = " ".join(args)
         self.eval(code, True)
 
+    # Use argparse to parse the whitespace delimited cell magic options
+    # just as we would parse a command line.
+    @option(
+        "-e", "--eval_output", action="store_true", default=False,
+        help="Evaluate the return value from the Scala code as Python code"
+    )
+    def cell_scala(self, eval_output=False):
+        """%%scala - evaluate contents of cell as Scala code
+
+        This cell magic will evaluate the cell (either expression or statement) as
+        Scala code. This will instantiate a Scala interpreter prior to running the code.
+
+        The -e or --eval_output flag signals that the result of the Scala execution
+        will be evaluated as Python code. The result of that evaluation will be the
+        output for the cell.
+
+        Examples
+        --------
+        %%scala
+        val x = 42
+
+        %%scala
+        import collections.mutable._
+        val y = mutable.Map.empty[Int, String]
+
+        %%scala -e
+        retval = "'(this is code in the kernel language)"
+
+        %%python -e
+        "'(this is code in the kernel language)"
+        """
+        # Ensure there is code to execute, not just whitespace
+        if self.code.strip():
+            if eval_output:
+                # Evaluate the Scala code
+                self.eval(self.code, False)
+                # Don't store the Scala as the return value
+                self.retval = None
+                # Tell the base class to evaluate retval as Python
+                # source code
+                self.evaluate = True
+            else:
+                # Evaluate the Scala code
+                self.retval = self.eval(self.code, False)
+                # Tell the base class not to touch the Scala result
+                self.evaluate = False
+
     def eval(self, code, raw):
-        """Evaluate Scala code.
+        """Evaluates Scala code.
 
         Parameters
         ----------
         code: str
             Code to execute
         raw: bool
-            Raw result of the eval, not wrapped by metakernel classes
+            True to return the raw result of the evalution, False to wrap it with
+            MetaKernel classes
 
         Returns
         -------
@@ -115,72 +175,56 @@ class ScalaMagic(Magic):
             else:
                 if res:
                     return TextOutput(res)
-        except ScalaException as e:
+        except ScalaException as ex:
+            # Get the kernel response so far
             resp = self.kernel.kernel_resp
+            # Wrap the exception for MetaKernel use
             resp['status'] = 'error'
-            tb = e.scala_message.split('\n')
+            tb = ex.scala_message.split('\n')
             first = tb[0]
             assert isinstance(first, str)
             eclass, _, emessage = first.partition(':')
-            # Include the entire traceback for notebook use
             return ExceptionWrapper(eclass, emessage, tb)
 
-    @option(
-        "-e", "--eval_output", action="store_true", default=False,
-        help="Use the retval value from the Scala cell as code in the kernel language."
-    )
-    def cell_scala(self, eval_output=False):
-        """
-        %%scala - evaluate contents of cell as Scala code
-
-        This cell magic will evaluate the cell (either expression or statement) as Scala code.
-
-        This will instantiate a scala interpreter prior to running the code.
-
-        The -e or --eval_output flag signals that the retval value expression will be used as code for the cell to be
-        evaluated by the host language.
-
-        Examples:
-            %%scala
-            val x = 42
-
-            %%scala
-            import collections.mutable._
-            val y = mutable.Map.empty[Int, String]
-
-            %%scala -e
-            retval = "'(this is code in the kernel language)"
-
-            %%python -e
-            "'(this is code in the kernel language)"
-        """
-        if self.code.strip():
-            if eval_output:
-                self.eval(self.code, False)
-                # self.code = str(self.env["retval"]) if ("retval" in self.env and
-                #                                         self.env["retval"] != None) else ""
-                self.retval = None
-                #self.env["retval"] = None
-                self.evaluate = True
-            else:
-                self.retval = self.eval(self.code, False)
-                #self.env["retval"] = None
-                self.evaluate = False
-
     def post_process(self, retval):
+        """Processes the output of one or stacked magics.
+
+        Parameters
+        ----------
+        retval : any or None
+            Value from another magic stacked with this one in a cell
+
+        Returns
+        -------
+        any
+            The received value if it's not None, otherwise the stored
+            `retval` of the last Scala code execution
+        """
         if retval is not None:
             return retval
-        else:
-            return self.retval
+        return self.retval
 
     def get_completions(self, info):
+        """Gets completions from the kernel based on the provided info.
+
+        Parameters
+        ----------
+        info : dict
+            Information returned by `metakernel.parser.Parser.parse_code`
+            including `code`, `help_pos`, `start`, etc.
+
+        Returns
+        -------
+        list of str
+            Possible completions for the code
+        """
         intp = self._get_scala_interpreter()
-        c = intp.complete(info['code'], info['help_pos'])
+        completions = intp.complete(info['code'], info['help_pos'])
 
         # Find common bits in the middle
         def trim(prefix, completions):
-            """Due to the nature of scala's completer we get full method names.
-            We need to trim out the common pieces.  Try longest prefix first etc
+            """Due to the nature of Scala's completer we get full method names.
+            We need to trim out the common pieces. Try longest prefix first, etc.
             """
             potential_prefix = os.path.commonprefix(completions)
             for i in reversed(range(len(potential_prefix)+1)):
@@ -189,14 +233,31 @@ class ScalaMagic(Magic):
             return 0
 
         prefix = info['code'][info['start']:info['help_pos']]
+        offset = trim(prefix, completions)
+        final_completions = [prefix + h[offset:] for h in completions]
 
-        offset = trim(prefix, c)
-
-        a = [prefix + h[offset:] for h in c]
-        self.kernel.log.debug("info %s\n    completions %s\n     final %s", info, c, a)
-        return a
+        self.kernel.log.debug('''info %s\ncompletions %s\nfinal %s''', info, completions, final_completions)
+        return final_completions
 
     def get_help_on(self, info, level=0, none_on_fail=False):
+        """Gets help text for the `info['help_obj']` identifier.
+
+        Parameters
+        ----------
+        info : dict
+            Information returned by `metakernel.parser.Parser.parse_code`
+            including `help_obj`, etc.
+        level : int, optional
+            Level of help to request, 0 for basic, 1 for more, etc.
+            By convention only. There is no true maximum.
+        none_on_fail : bool, optional
+            Return none when execution fails, ignored
+
+        Returns
+        -------
+        str
+            Help text
+        """
         intp = self._get_scala_interpreter()
         self.kernel.log.debug(info['help_obj'])
         # Calling this twice produces different output
@@ -204,7 +265,3 @@ class ScalaMagic(Magic):
         code = intp.complete(info['help_obj'], len(info['help_obj']))
         self.kernel.log.debug(code)
         return '\n'.join(code)
-
-
-def register_magics(kernel):
-    kernel.register_magics(ScalaMagic)
