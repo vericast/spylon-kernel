@@ -94,11 +94,13 @@ class SpylonKernel(MetaKernel):
         """
         if self._scalamagic and (not name.startswith("_i")):
             self.scala_interpreter.bind(name, value)
+        else:
+            self.log.debug('Not setting variable %s', name)
 
     def get_variable(self, name):
         """Get a variable from the kernel as a Python-typed value.
 
-        Part of the MetaKernel API.
+        Implements the expected MetaKernel interface for this method.
 
         Parameters
         ----------
@@ -118,14 +120,15 @@ class SpylonKernel(MetaKernel):
     def do_execute_direct(self, code, silent=False):
         """Executes code in the kernel language.
 
-        Part of the MetaKernel API.
+        Implements the expected MetaKernel interface for this method,
+        including all positional and keyword arguments.
 
         Parameters
         ----------
         code : str
             Scala code to execute
-        silent : bool
-            Ignored
+        silent : bool, optional
+            Silence output from this execution, ignored
 
         Returns
         -------
@@ -144,7 +147,7 @@ class SpylonKernel(MetaKernel):
     def get_completions(self, info):
         """Gets completions from the kernel based on the provided info.
 
-        Part of the MetaKernel API.
+        Implements the expected MetaKernel interface for this method.
 
         Parameters
         ----------
@@ -162,17 +165,18 @@ class SpylonKernel(MetaKernel):
     def get_kernel_help_on(self, info, level=0, none_on_fail=False):
         """Gets help text for the `info['help_obj']` identifier.
 
-        Part of the MetaKernel API.
+        Implements the expected MetaKernel interface for this method,
+        including all positional and keyword arguments.
 
         Parameters
         ----------
         info : dict
             Information returned by `metakernel.parser.Parser.parse_code`
             including `help_obj`, etc.
-        level : int
+        level : int, optional
             Level of help to request, 0 for basic, 1 for more, etc.
-        none_on_fail : bool
-            Ignored
+        none_on_fail : bool, optional
+            Return none when code excution fails
 
         Returns
         -------
@@ -200,7 +204,8 @@ class SpylonKernel(MetaKernel):
 
         Returns
         -------
-
+        dict
+            Status of the completion
 
         Example
         -------

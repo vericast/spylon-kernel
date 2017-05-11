@@ -103,18 +103,21 @@ class ScalaMagic(Magic):
         code = " ".join(args)
         self.eval(code, True)
 
+    # Use argparse to parse the whitespace delimited cell magic options
+    # just as we would parse a command line.
     @option(
         "-e", "--eval_output", action="store_true", default=False,
-        help="Evaluate the return value from the Scala cell as code in the kernel language."
+        help="Evaluate the return value from the Scala code as Python code"
     )
     def cell_scala(self, eval_output=False):
         """%%scala - evaluate contents of cell as Scala code
 
         This cell magic will evaluate the cell (either expression or statement) as
-        Scala code. This will instantiate a scala interpreter prior to running the code.
+        Scala code. This will instantiate a Scala interpreter prior to running the code.
 
-        The -e or --eval_output flag signals that the retval value expression will
-        be used as code for the cell to be evaluated by the host language.
+        The -e or --eval_output flag signals that the result of the Scala execution
+        will be evaluated as Python code. The result of that evaluation will be the
+        output for the cell.
 
         Examples
         --------
@@ -131,15 +134,21 @@ class ScalaMagic(Magic):
         %%python -e
         "'(this is code in the kernel language)"
         """
+        # Ensure there is code to execute, not just whitespace
         if self.code.strip():
             if eval_output:
+                # Evaluate the Scala code
                 self.eval(self.code, False)
+                # Don't store the Scala as the return value
                 self.retval = None
+                # Tell the base class to evaluate retval as Python
+                # source code
                 self.evaluate = True
             else:
+                # Evaluate the Scala code
                 self.retval = self.eval(self.code, False)
+                # Tell the base class not to touch the Scala result
                 self.evaluate = False
-
 
     def eval(self, code, raw):
         """Evaluates Scala code.
@@ -195,8 +204,7 @@ class ScalaMagic(Magic):
         """
         if retval is not None:
             return retval
-        else:
-            return self.retval
+        return self.retval
 
     def get_completions(self, info):
         """Gets completions from the kernel based on the provided info.
@@ -229,13 +237,10 @@ class ScalaMagic(Magic):
             return 0
 
         prefix = info['code'][info['start']:info['help_pos']]
-
         offset = trim(prefix, completions)
-
         final_completions = [prefix + h[offset:] for h in completions]
-        self.kernel.log.debug('''info %s
-            completions %s
-            final %s''', info, completions, final_completions)
+
+        self.kernel.log.debug('''info %s\ncompletions %s\nfinal %s''', info, completions, final_completions)
         return final_completions
 
     def get_help_on(self, info, level=0, none_on_fail=False):
@@ -248,10 +253,11 @@ class ScalaMagic(Magic):
         info : dict
             Information returned by `metakernel.parser.Parser.parse_code`
             including `help_obj`, etc.
-        level : int
+        level : int, optional
             Level of help to request, 0 for basic, 1 for more, etc.
-        none_on_fail : bool
-            Ignored
+            By convention only. There is no true maximum.
+        none_on_fail : bool, optional
+            Return none when execution fails, ignored
 
         Returns
         -------
