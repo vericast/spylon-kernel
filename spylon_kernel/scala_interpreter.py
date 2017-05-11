@@ -361,9 +361,9 @@ class ScalaInterpreter(object):
         """
         fd = open(filename, 'r')
         while True:
-            line = fd.readline()
-            if line:
-                fn(line)
+            chars = fd.read(4096)
+            if chars:
+                fn(chars)
                 await asyncio.sleep(0, loop=self.loop)
             else:
                 await asyncio.sleep(0.01, loop=self.loop)
