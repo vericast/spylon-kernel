@@ -142,7 +142,7 @@ class SpylonKernel(MetaKernel):
             return self.Error(e.scala_message)
 
     def get_completions(self, info):
-        """Gets completions from kernel based on the provided info.
+        """Gets completions from the kernel based on the provided info.
 
         Part of the MetaKernel API.
 
