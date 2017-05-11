@@ -189,8 +189,6 @@ class ScalaMagic(Magic):
     def post_process(self, retval):
         """Processes the output of one or stacked magics.
 
-        Part of the MetaKernel API.
-
         Parameters
         ----------
         retval : any or None
@@ -208,8 +206,6 @@ class ScalaMagic(Magic):
 
     def get_completions(self, info):
         """Gets completions from the kernel based on the provided info.
-
-        Part of the MetaKernel API.
 
         Parameters
         ----------
@@ -245,8 +241,6 @@ class ScalaMagic(Magic):
 
     def get_help_on(self, info, level=0, none_on_fail=False):
         """Gets help text for the `info['help_obj']` identifier.
-
-        Part of the MetaKernel API.
 
         Parameters
         ----------

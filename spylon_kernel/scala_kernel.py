@@ -68,14 +68,14 @@ class SpylonKernel(MetaKernel):
     def get_usage(self):
         """Gets usage information about the kernel itself.
 
-        Part of the MetaKernel API.
+        Implements the expected MetaKernel interface for this method.
         """
         return "This is spylon-kernel. It implements a Scala interpreter."
 
     def set_variable(self, name, value):
         """Sets a variable in the kernel language.
 
-        Part of the MetaKernel API.
+        Implements the expected MetaKernel interface for this method.
 
         Parameters
         ----------
