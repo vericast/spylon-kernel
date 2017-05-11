@@ -24,8 +24,7 @@ scala_intp = None
 DEFAULT_APPLICATION_NAME = "spylon-kernel"
 
 
-def init_spark(conf: spylon.spark.SparkConfiguration=None,
-                       application_name: str=None):
+def init_spark(conf=None, application_name=None):
     """Initializes a SparkSession
 
     Parameters
@@ -283,7 +282,7 @@ class ScalaInterpreter(object):
         self._stderr_handlers = []
         self._initialize_stdout_err(tempdir)
 
-    def register_stdout_handler(self, handler: Callable[[Any], None]):
+    def register_stdout_handler(self, handler):
         """Registers a handler for the Scala stdout stream.
 
         Parameters
@@ -293,7 +292,7 @@ class ScalaInterpreter(object):
         """
         self._stdout_handlers.append(handler)
 
-    def register_stderr_handler(self, handler: Callable[[Any], None]):
+    def register_stderr_handler(self, handler):
         """Registers a handler for the Scala stderr stream.
 
         Parameters
@@ -329,7 +328,7 @@ class ScalaInterpreter(object):
         self.loop.create_task(self._poll_file(stdout_file, self.handle_stdout))
         self.loop.create_task(self._poll_file(stderr_file, self.handle_stderr))
 
-    def handle_stdout(self, line) -> None:
+    def handle_stdout(self, line):
         """Passes a line of Scala stdout to registered handlers.
 
         Parameters
@@ -340,7 +339,7 @@ class ScalaInterpreter(object):
         for handler in self._stdout_handlers:
             handler(line)
 
-    def handle_stderr(self, line) -> None:
+    def handle_stderr(self, line):
         """Passes a line of Scala stderr to registered handlers.
 
         Parameters
@@ -351,7 +350,7 @@ class ScalaInterpreter(object):
         for handler in self._stderr_handlers:
             handler(line)
 
-    async def _poll_file(self, filename: str, fn: Callable[[Any], None]):
+    async def _poll_file(self, filename, fn):
         """Busy-polls a file for lines of text and passes them to
         the provided callback function when available.
 
@@ -371,7 +370,7 @@ class ScalaInterpreter(object):
             else:
                 await asyncio.sleep(0.01, loop=self.loop)
 
-    def _interpret_sync(self, code: str, synthetic=False):
+    def _interpret_sync(self, code, synthetic=False):
         """Synchronously interprets a Block of scala code and returns the
         string output from the Scala REPL.
 
@@ -413,7 +412,7 @@ class ScalaInterpreter(object):
         finally:
             self.jbyteout.reset()
 
-    async def _interpret_async(self, code: str, future: Future):
+    async def _interpret_async(self, code, future):
         """Asynchronously interprets a block of Scala code and sets the
         output or exception as the result of the future.
 
@@ -430,7 +429,7 @@ class ScalaInterpreter(object):
         except Exception as e:
             future.set_exception(e)
 
-    def interpret(self, code: str):
+    def interpret(self, code):
         """Interprets a block of Scala code.
 
         Follow this with a call `last_result` to retrieve the result as a
@@ -471,7 +470,7 @@ class ScalaInterpreter(object):
         res = lr.lineRep().call("$result", spark_state.spark_jvm_helpers.to_scala_list([]))
         return res
 
-    def bind(self, name: str, value: Any, jtyp: str="Any"):
+    def bind(self, name, value, jtyp="Any"):
         """Set a variable in the Scala REPL to a Python valued type.
 
         Parameters
@@ -500,12 +499,18 @@ class ScalaInterpreter(object):
 
     @property
     def jcompleter(self):
+        """Scala code completer.
+
+        Returns
+        -------
+        scala.tools.nsc.interpreter.PresentationCompilerCompleter
+        """
         if self._jcompleter is None:
             jClass = self.jvm.scala.tools.nsc.interpreter.PresentationCompilerCompleter
             self._jcompleter = jClass(self.jimain)
         return self._jcompleter
 
-    def complete(self, code: str, pos: int) -> List[str]:
+    def complete(self, code, pos):
         """Performs code completion for a block of Scala code.
 
         Parameters
