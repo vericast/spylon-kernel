@@ -158,7 +158,7 @@ def initialize_scala_interpreter():
     jars = jvm.org.apache.spark.util.Utils.getUserJars(jconf, True).mkString(":")
     interp_arguments = spark_jvm_helpers.to_scala_list(
         ["-Yrepl-class-based", "-Yrepl-outdir", output_dir,
-         "-classpath", jars
+         "-classpath", jars, "-deprecation:false"
          ]
     )
     settings = jvm.scala.tools.nsc.Settings()
@@ -314,16 +314,14 @@ class ScalaInterpreter(object):
         stdout_file = os.path.abspath(os.path.join(tempdir, 'stdout'))
         stderr_file = os.path.abspath(os.path.join(tempdir, 'stderr'))
 
-        self.log.info("Redirecting JVM stdout/stderr to %s", tempdir)
-        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
+        code = 'val _std{pipe} = new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true))'
         code = '\n'.join([
             'import java.io.{PrintStream, FileOutputStream, File}',
             'import scala.Console',
-            code.format(pipe="Out", filename=pathlib.Path(stdout_file).as_uri()),
-            code.format(pipe="Err", filename=pathlib.Path(stderr_file).as_uri())
+            code.format(pipe="out", filename=pathlib.Path(stdout_file).as_uri()),
+            code.format(pipe="err", filename=pathlib.Path(stderr_file).as_uri())
         ])
-        o = self.interpret(code)
-        self.log.info("Redirection complete: %s", o)
+        self.interpret(code, redirect_streams=False)
 
         self.loop.create_task(self._poll_file(stdout_file, self.handle_stdout))
         self.loop.create_task(self._poll_file(stderr_file, self.handle_stderr))
@@ -429,7 +427,7 @@ class ScalaInterpreter(object):
         except Exception as e:
             future.set_exception(e)
 
-    def interpret(self, code):
+    def interpret(self, code, redirect_streams=True):
         """Interprets a block of Scala code.
 
         Follow this with a call `last_result` to retrieve the result as a
@@ -439,6 +437,9 @@ class ScalaInterpreter(object):
         ----------
         code : str
             Scala code to interpret
+        redirect_streams : bool, optional
+            Force stdout/stderr to the polled files before executing
+            `code`
 
         Returns
         -------
@@ -450,6 +451,10 @@ class ScalaInterpreter(object):
         ScalaException
             When there is a problem interpreting the code
         """
+        if redirect_streams:
+            # Ensure stdout and stderr are going to the temp files before
+            # executing the code.
+            code = 'Console.setOut(_stdout)\nConsole.setErr(_stderr)\n' + code
         fut = asyncio.Future(loop=self.loop)
         asyncio.ensure_future(self._interpret_async(code, fut), loop=self.loop)
         res = self.loop.run_until_complete(fut)
