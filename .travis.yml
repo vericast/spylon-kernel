@@ -4,14 +4,15 @@ language: python
 
 python:
   - "3.5"
+  - "3.6"
 
 before_install:
   # Install a version of Spark to test this against
-  - wget http://d3kbcqa49mib13.cloudfront.net/spark-2.0.2-bin-hadoop2.7.tgz
-  - tar xf spark-2.0.2-bin-hadoop2.7.tgz -C $HOME/.cache/spark
+  - wget http://d3kbcqa49mib13.cloudfront.net/spark-2.1.1-bin-hadoop2.7.tgz
+  - tar xf spark-2.1.1-bin-hadoop2.7.tgz -C $HOME/.cache/spark
 
 env:
-  - SPARK_HOME=$HOME/.cache/spark/spark-2.0.2-bin-hadoop2.7 SPARK_SUBMIT_OPTS="-Dscala.usejavacp=true" PYTHONUNBUFFERED=1
+  - SPARK_HOME=$HOME/.cache/spark/spark-2.1.1-bin-hadoop2.7 SPARK_SUBMIT_OPTS="-Dscala.usejavacp=true" PYTHONUNBUFFERED=1
 
 install:
   - pip install -r requirements.txt

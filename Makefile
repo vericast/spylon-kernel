@@ -2,6 +2,7 @@
 
 SA:=source activate
 ENV:=spylon-kernel-dev
+SHELL:=/bin/bash
 
 help:
 # http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
@@ -17,7 +18,7 @@ clean: ## Make a clean source tree
 	-find . -name __pycache__ -exec rm -fr {} \;
 
 env: ## Make a conda dev environment
-	conda create -y -n $(ENV) python=3.5 notebook
+	conda create -y -n $(ENV) python=3.6 notebook
 	source activate $(ENV) && \
 		pip install -r requirements.txt -r requirements-test.txt -e . && \
 		python -m spylon_kernel install --sys-prefix
