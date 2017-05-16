@@ -1,3 +1,8 @@
+# 0.3.1
+
+* [PR-34](https://github.com/maxpoint/spylon-kernel/pull/34) - Test on Spark 2.1.1 and Python 3.5, 3.6
+* [PR-35](https://github.com/maxpoint/spylon-kernel/pull/35) - Mark stdout / stderr PrintWriters as @transient
+
 # 0.3.0
 
 * [PR-24](https://github.com/maxpoint/spylon-kernel/pull/24) - Let users set `application_name` in `%%init_spark`

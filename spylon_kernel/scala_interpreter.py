@@ -314,7 +314,7 @@ class ScalaInterpreter(object):
         stdout_file = os.path.abspath(os.path.join(tempdir, 'stdout'))
         stderr_file = os.path.abspath(os.path.join(tempdir, 'stderr'))
 
-        code = 'val _std{pipe} = new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true))'
+        code = '@transient val _std{pipe} = new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true))'
         code = '\n'.join([
             'import java.io.{PrintStream, FileOutputStream, File}',
             'import scala.Console',
