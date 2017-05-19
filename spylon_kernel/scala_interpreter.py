@@ -314,13 +314,22 @@ class ScalaInterpreter(object):
         stdout_file = os.path.abspath(os.path.join(tempdir, 'stdout'))
         stderr_file = os.path.abspath(os.path.join(tempdir, 'stderr'))
 
-        code = '@transient val _std{pipe} = new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true))'
-        code = '\n'.join([
-            'import java.io.{PrintStream, FileOutputStream, File}',
-            'import scala.Console',
-            code.format(pipe="out", filename=pathlib.Path(stdout_file).as_uri()),
-            code.format(pipe="err", filename=pathlib.Path(stderr_file).as_uri())
-        ])
+        code = '''
+        class KernelConsole() {{
+            import java.io.{{PrintStream, FileOutputStream, File}}
+            import scala.Console
+
+            val stdout = new PrintStream(new FileOutputStream(new File(new java.net.URI("{stdout}")), true))
+            val stderr = new PrintStream(new FileOutputStream(new File(new java.net.URI("{stderr}")), true))
+
+            def setStreams = {{
+                Console.setOut(stdout)
+                Console.setErr(stderr)
+            }}
+        }}
+        @transient val _kc = new KernelConsole
+        '''.format(stdout=pathlib.Path(stdout_file).as_uri(),
+                   stderr=pathlib.Path(stderr_file).as_uri())
         self.interpret(code, redirect_streams=False)
 
         self.loop.create_task(self._poll_file(stdout_file, self.handle_stdout))
@@ -454,7 +463,7 @@ class ScalaInterpreter(object):
         if redirect_streams:
             # Ensure stdout and stderr are going to the temp files before
             # executing the code.
-            code = 'Console.setOut(_stdout)\nConsole.setErr(_stderr)\n' + code
+            code = '_kc.setStreams\n' + code
         fut = asyncio.Future(loop=self.loop)
         asyncio.ensure_future(self._interpret_async(code, fut), loop=self.loop)
         res = self.loop.run_until_complete(fut)
