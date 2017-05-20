@@ -189,10 +189,12 @@ def initialize_scala_interpreter():
         }
         """)
     # Import Spark packages for convenience
-    intp.interpret("import org.apache.spark.SparkContext._")
-    intp.interpret("import spark.implicits._")
-    intp.interpret("import spark.sql")
-    intp.interpret("import org.apache.spark.sql.functions._")
+    intp.interpret('\n'.join([
+        "import org.apache.spark.SparkContext._",
+        "import spark.implicits._",
+        "import spark.sql",
+        "import org.apache.spark.sql.functions._"
+    ]))
     # Clear the print writer stream
     bytes_out.reset()
 
