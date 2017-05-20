@@ -312,23 +312,19 @@ class ScalaInterpreter(object):
         stdout_file = os.path.abspath(os.path.join(tempdir, 'stdout'))
         stderr_file = os.path.abspath(os.path.join(tempdir, 'stderr'))
 
-        code = '''
-        class KernelConsole() {{
-            import java.io.{{PrintStream, FileOutputStream, File}}
-            import scala.Console
-
-            val stdout = new PrintStream(new FileOutputStream(new File(new java.net.URI("{stdout}")), true))
-            val stderr = new PrintStream(new FileOutputStream(new File(new java.net.URI("{stderr}")), true))
-
-            def setStreams = {{
-                Console.setOut(stdout)
-                Console.setErr(stderr)
-            }}
-        }}
-        @transient val _kc = new KernelConsole
-        '''.format(stdout=pathlib.Path(stdout_file).as_uri(),
-                   stderr=pathlib.Path(stderr_file).as_uri())
-        self.interpret(code, redirect_streams=False)
+        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
+        code = '\n'.join([
+            'import java.io.{PrintStream, FileOutputStream, File}',
+            'import scala.Console',
+            # Set console out and error for the main thread
+            code.format(pipe="Out", filename=pathlib.Path(stdout_file).as_uri()),
+            code.format(pipe="Err", filename=pathlib.Path(stderr_file).as_uri()),
+            # Make sure the system stdout is also set to the console out for
+            # other threads Spark may use. Don't redirect stderr which creates
+            # progress bars that do not wrap properly in the notebook.
+            'System.setOut(Console.out)'
+        ])
+        self.interpret(code)
 
         self.loop.create_task(self._poll_file(stdout_file, self.handle_stdout))
         self.loop.create_task(self._poll_file(stderr_file, self.handle_stderr))
@@ -434,7 +430,7 @@ class ScalaInterpreter(object):
         except Exception as e:
             future.set_exception(e)
 
-    def interpret(self, code, redirect_streams=True):
+    def interpret(self, code):
         """Interprets a block of Scala code.
 
         Follow this with a call `last_result` to retrieve the result as a
@@ -444,9 +440,6 @@ class ScalaInterpreter(object):
         ----------
         code : str
             Scala code to interpret
-        redirect_streams : bool, optional
-            Force stdout/stderr to the polled files before executing
-            `code`
 
         Returns
         -------
@@ -458,10 +451,9 @@ class ScalaInterpreter(object):
         ScalaException
             When there is a problem interpreting the code
         """
-        if redirect_streams:
-            # Ensure stdout and stderr are going to the temp files before
-            # executing the code.
-            code = '_kc.setStreams\n' + code
+        # Ensure the cell is not incomplete..
+        code = 'print("")\n'+code
+
         fut = asyncio.Future(loop=self.loop)
         asyncio.ensure_future(self._interpret_async(code, fut), loop=self.loop)
         res = self.loop.run_until_complete(fut)
