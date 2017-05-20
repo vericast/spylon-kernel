@@ -268,10 +268,6 @@ class ScalaInterpreter(object):
         self.web_ui_url = get_web_ui_url(self.sc)
         self._jcompleter = None
 
-        # ???
-        # jinterpreter_package = getattr(getattr(self.jvm.scala.tools.nsc.interpreter, 'package$'), "MODULE$")
-        # self.iMainOps = jinterpreter_package.IMainOps(jimain)
-
         # Create a temp directory that will contain the stdout/stderr
         # files written by Scala and read by Python
         tempdir = tempfile.mkdtemp()
