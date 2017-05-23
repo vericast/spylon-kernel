@@ -1,3 +1,7 @@
+# 0.3.2
+
+* [PR-36](https://github.com/maxpoint/spylon-kernel/pull/35) - Revert to setting stdout/stderr once, fix typos and nits
+
 # 0.3.1
 
 * [PR-34](https://github.com/maxpoint/spylon-kernel/pull/34) - Test on Spark 2.1.1 and Python 3.5, 3.6
