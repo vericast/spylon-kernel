@@ -319,10 +319,6 @@ class ScalaInterpreter(object):
             # Set console out and error for the main thread
             code.format(pipe="Out", filename=pathlib.Path(stdout_file).as_uri()),
             code.format(pipe="Err", filename=pathlib.Path(stderr_file).as_uri()),
-            # Make sure the system stdout is also set to the console out for
-            # other threads Spark may use. Don't redirect stderr which creates
-            # progress bars that do not wrap properly in the notebook.
-            'System.setOut(Console.out)'
         ])
         self.interpret(code)
 
