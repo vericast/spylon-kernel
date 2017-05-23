@@ -53,7 +53,7 @@ class ScalaMagic(Magic):
             self.kernel.Display(TextOutput(dedent("""\
                 Spark Web UI available at {webui}
                 SparkContext available as 'sc' (version = {version}, master = {master}, app id = {app_id})
-                SparSsession available as 'spark'
+                SparkSession available as 'spark'
                 """.format(
                     version=sc.version,
                     master=sc.master,

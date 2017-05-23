@@ -189,10 +189,12 @@ def initialize_scala_interpreter():
         }
         """)
     # Import Spark packages for convenience
-    intp.interpret("import org.apache.spark.SparkContext._")
-    intp.interpret("import spark.implicits._")
-    intp.interpret("import spark.sql")
-    intp.interpret("import org.apache.spark.sql.functions._")
+    intp.interpret('\n'.join([
+        "import org.apache.spark.SparkContext._",
+        "import spark.implicits._",
+        "import spark.sql",
+        "import org.apache.spark.sql.functions._"
+    ]))
     # Clear the print writer stream
     bytes_out.reset()
 
@@ -268,10 +270,6 @@ class ScalaInterpreter(object):
         self.web_ui_url = get_web_ui_url(self.sc)
         self._jcompleter = None
 
-        # ???
-        # jinterpreter_package = getattr(getattr(self.jvm.scala.tools.nsc.interpreter, 'package$'), "MODULE$")
-        # self.iMainOps = jinterpreter_package.IMainOps(jimain)
-
         # Create a temp directory that will contain the stdout/stderr
         # files written by Scala and read by Python
         tempdir = tempfile.mkdtemp()
@@ -314,14 +312,15 @@ class ScalaInterpreter(object):
         stdout_file = os.path.abspath(os.path.join(tempdir, 'stdout'))
         stderr_file = os.path.abspath(os.path.join(tempdir, 'stderr'))
 
-        code = '@transient val _std{pipe} = new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true))'
+        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
         code = '\n'.join([
             'import java.io.{PrintStream, FileOutputStream, File}',
             'import scala.Console',
-            code.format(pipe="out", filename=pathlib.Path(stdout_file).as_uri()),
-            code.format(pipe="err", filename=pathlib.Path(stderr_file).as_uri())
+            # Set console out and error for the main thread
+            code.format(pipe="Out", filename=pathlib.Path(stdout_file).as_uri()),
+            code.format(pipe="Err", filename=pathlib.Path(stderr_file).as_uri()),
         ])
-        self.interpret(code, redirect_streams=False)
+        self.interpret(code)
 
         self.loop.create_task(self._poll_file(stdout_file, self.handle_stdout))
         self.loop.create_task(self._poll_file(stderr_file, self.handle_stderr))
@@ -427,7 +426,7 @@ class ScalaInterpreter(object):
         except Exception as e:
             future.set_exception(e)
 
-    def interpret(self, code, redirect_streams=True):
+    def interpret(self, code):
         """Interprets a block of Scala code.
 
         Follow this with a call `last_result` to retrieve the result as a
@@ -437,9 +436,6 @@ class ScalaInterpreter(object):
         ----------
         code : str
             Scala code to interpret
-        redirect_streams : bool, optional
-            Force stdout/stderr to the polled files before executing
-            `code`
 
         Returns
         -------
@@ -451,10 +447,9 @@ class ScalaInterpreter(object):
         ScalaException
             When there is a problem interpreting the code
         """
-        if redirect_streams:
-            # Ensure stdout and stderr are going to the temp files before
-            # executing the code.
-            code = 'Console.setOut(_stdout)\nConsole.setErr(_stderr)\n' + code
+        # Ensure the cell is not incomplete. Same approach taken by Apache Zeppelin.
+        code = 'print("")\n'+code
+
         fut = asyncio.Future(loop=self.loop)
         asyncio.ensure_future(self._interpret_async(code, fut), loop=self.loop)
         res = self.loop.run_until_complete(fut)

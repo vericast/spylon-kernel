@@ -85,3 +85,13 @@ def test_web_ui_url(scala_interpreter):
 def test_anon_func(scala_interpreter):
     result = scala_interpreter.interpret("sc.parallelize(0 until 10).map(x => x * 2).sum().toInt")
     assert result.strip().endswith(str(sum(x * 2 for x in range(10))))
+
+
+def test_case_classes(scala_interpreter):
+    scala_interpreter.interpret('case class DatasetTest(y: Int)')
+    scala_interpreter.interpret('''
+    val df = spark.createDataset((0 until 10).map(DatasetTest(_)))
+    val res = df.agg(sum('y)).collect().head''')
+    strres = scala_interpreter.interpret("res.getLong(0)")
+    result = scala_interpreter.last_result()
+    assert result == sum(range(10))
