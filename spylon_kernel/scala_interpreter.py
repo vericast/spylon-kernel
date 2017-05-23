@@ -451,7 +451,7 @@ class ScalaInterpreter(object):
         ScalaException
             When there is a problem interpreting the code
         """
-        # Ensure the cell is not incomplete
+        # Ensure the cell is not incomplete. Same approach taken by Apache Zeppelin.
         code = 'print("")\n'+code
 
         fut = asyncio.Future(loop=self.loop)
