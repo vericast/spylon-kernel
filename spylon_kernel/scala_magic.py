@@ -70,21 +70,7 @@ class ScalaMagic(Magic):
             self._interp.register_stdout_handler(self.kernel.Write)
             self._interp.register_stderr_handler(self.kernel.Error)
 
-            # Spwan an async loop that yields to the asyncio loop
-            ioloop.IOLoop.current().spawn_callback(self._loop_alive)
-
         return self._interp
-
-    @gen.coroutine
-    def _loop_alive(self):
-        """Coroutine that yields on an interval to allow other event
-        loops to run besides the `tornado.ioloop.IOLoop`.
-        """
-        loop = self._interp.loop
-        while True:
-            loop.call_soon(loop.stop)
-            loop.run_forever()
-            yield gen.sleep(0.01)
 
     def line_scala(self, *args):
         """%scala CODE - evaluates a line of code as Scala
