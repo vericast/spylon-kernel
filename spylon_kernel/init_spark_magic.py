@@ -49,10 +49,8 @@ class InitSparkMagic(Magic):
         """
         # Evaluate the cell contents as Python
         exec(self.code, self.env)
-        # Use the launcher and application_name as arguments to spylon to
-        # initialize a spark session
-        init_spark(conf=self.env['launcher'],
-                   application_name=self.env['application_name'])
+        # Use the launcher to initialize a spark session
+        init_spark(conf=self.env['launcher'])
         # Do not evaluate the cell contents using the kernel
         self.evaluate = False
 

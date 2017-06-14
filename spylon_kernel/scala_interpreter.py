@@ -24,8 +24,8 @@ scala_intp = None
 DEFAULT_APPLICATION_NAME = "spylon-kernel"
 
 
-def init_spark(conf=None, application_name=None):
-    """Initializes a SparkSession
+def init_spark(conf=None):
+    """Initializes a SparkSession.
 
     Parameters
     ----------
@@ -48,15 +48,11 @@ def init_spark(conf=None, application_name=None):
 
     if conf is None:
         conf = spylon.spark.launcher.SparkConfiguration()
-    if application_name is None:
-        application_name = DEFAULT_APPLICATION_NAME
 
     # Create a temp directory that gets cleaned up on exit
     output_dir = os.path.abspath(tempfile.mkdtemp())
-
     def cleanup():
         shutil.rmtree(output_dir, True)
-
     atexit.register(cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
@@ -67,10 +63,12 @@ def init_spark(conf=None, application_name=None):
     # this from being set after SparkContext is instantiated.
     conf.conf.set("spark.repl.class.outputDir", output_dir)
 
+    # Get the application name from the spylon configuration object
+    application_name = conf.conf._conf_dict.get('spark.app.name', DEFAULT_APPLICATION_NAME)
     # Create a new spark context using the configuration
     spark_context = conf.spark_context(application_name)
 
-    # pyspark is in the python path after create the context
+    # pyspark is in the python path after creating the context
     from pyspark.sql import SparkSession
     from spylon.spark.utils import SparkJVMHelpers
 
@@ -168,7 +166,8 @@ def initialize_scala_interpreter():
     # share it with the Scala Main REPL class as well
     Main = jvm.org.apache.spark.repl.Main
     jspark_session = spark_session._jsparkSession
-    # Equivalent to Main.sparkSession = jspark_session
+    # Equivalent to Main.sparkSession = jspark_session, which we can't do
+    # directly because of the $ character in the method name
     getattr(Main, "sparkSession_$eq")(jspark_session)
     getattr(Main, "sparkContext_$eq")(jspark_session.sparkContext())
 
