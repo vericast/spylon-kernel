@@ -104,6 +104,7 @@ def test_init_magic_completion(spylon_kernel):
     assert set(result['matches']) == {'launcher.conf.spark.executor.cores'}
 
 
+@pytest.mark.skip("needs execute result, stream output synchronization")
 def test_stdout(spylon_kernel):
     spylon_kernel.do_execute_direct('''
         Console.err.println("Error")
