@@ -73,8 +73,8 @@ def init_spark(conf=None):
     # Patch the pyspark.java_gateway.Popen instance to force it to pipe to the parent
     # process so that we can catch all output from the Scala interpreter and Spark
     # objects we're about to create
-    # Note: Making this an official part of the pyspark.java_gateway.launch_gateway
-    #
+    # Note: Opened an issue about making this a part of the pyspark.java_gateway.launch_gateway
+    # API since it's useful in other programmatic cases beyond this project
     import pyspark.java_gateway
     spark_jvm_proc = None
     def Popen(*args, **kwargs):
@@ -83,7 +83,10 @@ def init_spark(conf=None):
         """
         nonlocal spark_jvm_proc
         # Override these in kwargs to avoid duplicate value errors
+        # Set streams to unbuffered so that we read whatever bytes are available
+        # when ready, https://docs.python.org/3.6/library/subprocess.html#popen-constructor
         kwargs['bufsize'] = 0
+        # Capture everything from stdout and stderr
         kwargs['stdout'] = subprocess.PIPE
         kwargs['stderr'] = subprocess.PIPE
         spark_jvm_proc = subprocess.Popen(*args, **kwargs)
@@ -367,7 +370,7 @@ class ScalaInterpreter(object):
     def interpret(self, code):
         """Interprets a block of Scala code.
 
-        Follow this with a call `last_result` to retrieve the result as a
+        Follow this with a call to `last_result` to retrieve the result as a
         Python object.
 
         Parameters
@@ -386,6 +389,7 @@ class ScalaInterpreter(object):
             When there is a problem interpreting the code
         """
         # Ensure the cell is not incomplete. Same approach taken by Apache Zeppelin.
+        # https://github.com/apache/zeppelin/blob/3219218620e795769e6f65287f134b6a43e9c010/spark/src/main/java/org/apache/zeppelin/spark/SparkInterpreter.java#L1263
         code = 'print("")\n'+code
 
         try:
