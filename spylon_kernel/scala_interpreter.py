@@ -327,27 +327,27 @@ class ScalaInterpreter(object):
         """
         self._stderr_handlers.append(handler)
 
-    def handle_stdout(self, line):
+    def handle_stdout(self, chunk):
         """Passes a chunk of Scala stdout to registered handlers.
 
         Parameters
         ----------
-        line : str
+        chunk : str
             Chunk of text
         """
         for handler in self._stdout_handlers:
-            handler(line)
+            handler(chunk)
 
-    def handle_stderr(self, line):
+    def handle_stderr(self, chunk):
         """Passes a chunk of Scala stderr to registered handlers.
 
         Parameters
         ----------
-        line : str
+        chunk : str
             Chunk of text
         """
         for handler in self._stderr_handlers:
-            handler(line)
+            handler(chunk)
 
     def _read_stream(self, fd, fn):
         """Reads bytes from a file descriptor, utf-8 decodes them, and passes them
