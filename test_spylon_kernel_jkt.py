@@ -30,7 +30,7 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
         '''
 
     code_stderr = '''
-        Console.err.println("Error")
+        Console.err.println("oh noes!")
         // Sleep for a bit since the process for getting text output is asynchronous
         Thread.sleep(1000)
         '''
@@ -42,7 +42,6 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
     code_generate_error = "4 / 0"
 
     def test_execute_stderr(self):
-        raise SkipTest("needs execute result, stream output synchronization")
         if not self.code_stderr:
             raise SkipTest
 
@@ -54,12 +53,12 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
         self.assertGreaterEqual(len(output_msgs), 1)
         for msg in output_msgs:
             if (msg['msg_type'] == 'stream') and msg['content']['name'] == 'stderr':
+                self.assertIn('oh noes!', msg['content']['text'])
                 break
         else:
             self.assertTrue(False, "Expected at least one 'stream' message of type 'stderr'")
 
     def test_execute_stdout(self):
-        raise SkipTest("needs execute result, stream output synchronization")
         if not self.code_hello_world:
             raise SkipTest
 

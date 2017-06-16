@@ -363,9 +363,12 @@ class ScalaInterpreter(object):
             Callback function that handles chunks of text
         """
         while True:
+            # Specify a max read size so the read doesn't block indefinitely
+            # Using a value less than the typical default max pipe size
+            # and greater than a single system page.
             buff = fd.read(8192)
             if buff:
-                ioloop.IOLoop.instance().add_callback(fn, buff.decode('utf-8'))
+                fn(buff.decode('utf-8'))
 
     def interpret(self, code):
         """Interprets a block of Scala code.

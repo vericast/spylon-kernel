@@ -104,12 +104,11 @@ def test_init_magic_completion(spylon_kernel):
     assert set(result['matches']) == {'launcher.conf.spark.executor.cores'}
 
 
-@pytest.mark.skip("needs execute result, stream output synchronization")
-def test_stdout(spylon_kernel):
+@pytest.mark.skip("fails randomly, maybe because interpreter is reused")
+def test_stderr(spylon_kernel):
     spylon_kernel.do_execute_direct('''
         Console.err.println("Error")
         // Sleep for a bit since the process for getting text output is asynchronous
         Thread.sleep(1000)''')
     error, _ = spylon_kernel.Errors.pop()
     assert error[0].strip() == 'Error'
-
