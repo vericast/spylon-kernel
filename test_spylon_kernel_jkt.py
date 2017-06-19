@@ -41,39 +41,8 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
 
     code_generate_error = "4 / 0"
 
-    def test_execute_stderr(self):
-        if not self.code_stderr:
-            raise SkipTest
 
         self.flush_channels()
-        reply, output_msgs = self.execute_helper(code=self.code_stderr)
-
-        self.assertEqual(reply['content']['status'], 'ok')
-
-        self.assertGreaterEqual(len(output_msgs), 1)
-        for msg in output_msgs:
-            if (msg['msg_type'] == 'stream') and msg['content']['name'] == 'stderr':
-                self.assertIn('oh noes!', msg['content']['text'])
-                break
-        else:
-            self.assertTrue(False, "Expected at least one 'stream' message of type 'stderr'")
-
-    def test_execute_stdout(self):
-        if not self.code_hello_world:
-            raise SkipTest
-
-        self.flush_channels()
-        reply, output_msgs = self.execute_helper(code=self.code_hello_world)
-
-        self.assertEqual(reply['content']['status'], 'ok')
-
-        self.assertGreaterEqual(len(output_msgs), 1)
-        for msg in output_msgs:
-            if (msg['msg_type'] == 'stream') and msg['content']['name'] == 'stdout':
-                self.assertIn('hello, world', msg['content']['text'])
-                break
-        else:
-            self.assertTrue(False, "Expected at least one 'stream' message of type 'stdout' ")
 
 
 if __name__ == '__main__':

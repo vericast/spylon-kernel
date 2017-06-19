@@ -70,7 +70,7 @@ def test_last_result(spylon_kernel):
     val foo = LastResult(8)
     """)
     foo = spylon_kernel.get_variable("foo")
-    assert "foo"
+    assert foo
 
 
 def test_help(spylon_kernel):
@@ -80,14 +80,6 @@ def test_help(spylon_kernel):
 
 
 def test_init_magic(spylon_kernel):
-    code = dedent("""\
-        %%init_spark
-        launcher.conf.spark.executor.cores = 2
-        """)
-    spylon_kernel.do_execute(code)
-
-
-def test_init_magic_with_appname(spylon_kernel):
     code = dedent("""\
         %%init_spark
         launcher.conf.spark.app.name = 'test-app-name'

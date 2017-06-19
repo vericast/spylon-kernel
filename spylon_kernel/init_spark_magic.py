@@ -19,15 +19,15 @@ class InitSparkMagic(Magic):
 
     Attributes
     ----------
-    env : __builtins__
-        Copy of the Python builtins
+    env : dict
+        Copy of the Python builtins plus a spylon.spark.launcher.SparkConfiguration
+        object for use when initializing the Spark context
     log : logging.Logger
         Logger for this instance
     """
     def __init__(self, kernel):
         super(InitSparkMagic, self).__init__(kernel)
         self.env = globals()['__builtins__'].copy()
-        self.env['application_name'] = None
         self.env['launcher'] = spylon.spark.launcher.SparkConfiguration()
         self.log = logging.Logger(self.__class__.__name__)
 
@@ -42,9 +42,9 @@ class InitSparkMagic(Magic):
         Example
         -------
         %%init_spark
-        application_name = "My Fancy App"
         launcher.jars = ["file://some/jar.jar"]
         launcher.master = "local[4]"
+        launcher.conf.spark.app.name = "My Fancy App"
         launcher.conf.spark.executor.cores = 8
         """
         # Evaluate the cell contents as Python
