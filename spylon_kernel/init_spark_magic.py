@@ -31,15 +31,15 @@ class InitSparkMagic(Magic):
         self.env['launcher'] = spylon.spark.launcher.SparkConfiguration()
         self.log = logging.Logger(self.__class__.__name__)
 
-    # Use argparse to parse the whitespace delimited cell magic options
+    # Use optparse to parse the whitespace delimited cell magic options
     # just as we would parse a command line.
     @option(
         "--stderr", action="store_true", default=False,
         help="Capture stderr in the notebook instead of in the kernel log"
     )
     def cell_init_spark(self, stderr=False):
-        """%%init_spark --stderr CODE - starts a SparkContext with a custom
-        configuration defined using Python code
+        """%%init_spark [--stderr] - starts a SparkContext with a custom
+        configuration defined using Python code in the body of the cell
 
         Includes a `spylon.spark.launcher.SparkConfiguration` instance
         in the variable `launcher`. Looks for an `application_name`

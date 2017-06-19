@@ -73,7 +73,7 @@ class ScalaMagic(Magic):
         return self._interp
 
     def line_scala(self, *args):
-        """%scala CODE - evaluates a line of code as Scala
+        """%scala - evaluates a line of code as Scala
 
         Parameters
         ----------
@@ -89,7 +89,7 @@ class ScalaMagic(Magic):
         code = " ".join(args)
         self.eval(code, True)
 
-    # Use argparse to parse the whitespace delimited cell magic options
+    # Use optparse to parse the whitespace delimited cell magic options
     # just as we would parse a command line.
     @option(
         "-e", "--eval_output", action="store_true", default=False,
