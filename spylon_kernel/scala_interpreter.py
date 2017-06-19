@@ -1,22 +1,23 @@
 """Scala interpreter supporting async I/O with the managing Python process."""
-import asyncio
 import atexit
 import logging
 import os
 import pathlib
 import shutil
 import signal
+import subprocess
 import tempfile
+import threading
 
-from asyncio import Future
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Union, List, Any
 
 import spylon.spark
+from tornado import ioloop
 
 # Global singletons
-SparkState = namedtuple('SparkState', 'spark_session spark_jvm_helpers')
+SparkState = namedtuple('SparkState', 'spark_session spark_jvm_helpers spark_jvm_proc')
 spark_state = None
 scala_intp = None
 
@@ -24,15 +25,15 @@ scala_intp = None
 DEFAULT_APPLICATION_NAME = "spylon-kernel"
 
 
-def init_spark(conf=None, application_name=None):
-    """Initializes a SparkSession
+def init_spark(conf=None, capture_stderr=False):
+    """Initializes a SparkSession.
 
     Parameters
     ----------
     conf: spylon.spark.SparkConfiguration, optional
         Spark configuration to apply to the session
-    application_name: str, optional
-        Name to give the session
+    capture_stderr: bool, optional
+        Capture stderr from the Spark JVM or let it go to the kernel log
 
     Returns
     -------
@@ -48,15 +49,11 @@ def init_spark(conf=None, application_name=None):
 
     if conf is None:
         conf = spylon.spark.launcher.SparkConfiguration()
-    if application_name is None:
-        application_name = DEFAULT_APPLICATION_NAME
 
     # Create a temp directory that gets cleaned up on exit
     output_dir = os.path.abspath(tempfile.mkdtemp())
-
     def cleanup():
         shutil.rmtree(output_dir, True)
-
     atexit.register(cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
@@ -67,17 +64,48 @@ def init_spark(conf=None, application_name=None):
     # this from being set after SparkContext is instantiated.
     conf.conf.set("spark.repl.class.outputDir", output_dir)
 
+    # Get the application name from the spylon configuration object
+    application_name = conf.conf._conf_dict.get('spark.app.name', DEFAULT_APPLICATION_NAME)
+
+    # Force spylon to "discover" the spark python path so that we can import pyspark
+    conf._init_spark()
+
+    # Patch the pyspark.java_gateway.Popen instance to force it to pipe to the parent
+    # process so that we can catch all output from the Scala interpreter and Spark
+    # objects we're about to create
+    # Note: Opened an issue about making this a part of the pyspark.java_gateway.launch_gateway
+    # API since it's useful in other programmatic cases beyond this project
+    import pyspark.java_gateway
+    spark_jvm_proc = None
+    def Popen(*args, **kwargs):
+        """Wraps subprocess.Popen to force stdout and stderr from the child process
+        to pipe to this process without buffering.
+        """
+        nonlocal spark_jvm_proc
+        # Override these in kwargs to avoid duplicate value errors
+        # Set streams to unbuffered so that we read whatever bytes are available
+        # when ready, https://docs.python.org/3.6/library/subprocess.html#popen-constructor
+        kwargs['bufsize'] = 0
+        # Capture everything from stdout for display in the notebook
+        kwargs['stdout'] = subprocess.PIPE
+        # Optionally capture stderr, otherwise it'll go to the kernel log
+        if capture_stderr:
+            kwargs['stderr'] = subprocess.PIPE
+        spark_jvm_proc = subprocess.Popen(*args, **kwargs)
+        return spark_jvm_proc
+    pyspark.java_gateway.Popen = Popen
+
     # Create a new spark context using the configuration
     spark_context = conf.spark_context(application_name)
 
-    # pyspark is in the python path after create the context
+    # pyspark is in the python path after creating the context
     from pyspark.sql import SparkSession
     from spylon.spark.utils import SparkJVMHelpers
 
     # Create the singleton SparkState
     spark_session = SparkSession(spark_context)
     spark_jvm_helpers = SparkJVMHelpers(spark_session._sc)
-    spark_state = SparkState(spark_session, spark_jvm_helpers)
+    spark_state = SparkState(spark_session, spark_jvm_helpers, spark_jvm_proc)
     return spark_state
 
 def get_web_ui_url(sc):
@@ -132,7 +160,7 @@ def initialize_scala_interpreter():
     ScalaInterpreter
     """
     # Initialize Spark first if it isn't already
-    spark_session, spark_jvm_helpers = init_spark()
+    spark_session, spark_jvm_helpers, spark_jvm_proc = init_spark()
 
     # Get handy JVM references
     jvm = spark_session._jvm
@@ -144,7 +172,7 @@ def initialize_scala_interpreter():
     bytes_out = jvm.org.apache.commons.io.output.ByteArrayOutputStream()
     jprint_writer = io.PrintWriter(bytes_out, True)
 
-    # Set the Spark applicaiton name if it is not already set
+    # Set the Spark application name if it is not already set
     jconf.setIfMissing("spark.app.name", DEFAULT_APPLICATION_NAME)
 
     # Set the location of the Spark package on HDFS, if available
@@ -159,7 +187,7 @@ def initialize_scala_interpreter():
     interp_arguments = spark_jvm_helpers.to_scala_list(
         ["-Yrepl-class-based", "-Yrepl-outdir", output_dir,
          "-classpath", jars, "-deprecation:false"
-         ]
+        ]
     )
     settings = jvm.scala.tools.nsc.Settings()
     settings.processArguments(interp_arguments, True)
@@ -168,7 +196,8 @@ def initialize_scala_interpreter():
     # share it with the Scala Main REPL class as well
     Main = jvm.org.apache.spark.repl.Main
     jspark_session = spark_session._jsparkSession
-    # Equivalent to Main.sparkSession = jspark_session
+    # Equivalent to Main.sparkSession = jspark_session, which we can't do
+    # directly because of the $ character in the method name
     getattr(Main, "sparkSession_$eq")(jspark_session)
     getattr(Main, "sparkContext_$eq")(jspark_session.sparkContext())
 
@@ -178,16 +207,9 @@ def initialize_scala_interpreter():
 
     # Ensure that sc and spark are bound in the interpreter context.
     intp.interpret("""
-        @transient val spark = if (org.apache.spark.repl.Main.sparkSession != null) {
-            org.apache.spark.repl.Main.sparkSession
-        } else {
-            org.apache.spark.repl.Main.createSparkSession()
-        }
-        @transient val sc = {
-            val _sc = spark.sparkContext
-            _sc
-        }
-        """)
+        @transient val spark = org.apache.spark.repl.Main.sparkSession
+        @transient val sc = spark.sparkContext
+    """)
     # Import Spark packages for convenience
     intp.interpret('\n'.join([
         "import org.apache.spark.SparkContext._",
@@ -242,24 +264,16 @@ class ScalaInterpreter(object):
         This is used to return output data from the REPL.
     log : logging.Logger
         Logger for this instance
-    loop : asyncio.AbstractEventLoop, optional
-        Asyncio eventloop
     web_ui_url : str
         URL of the Spark web UI associated with this interpreter
     """
     executor = ThreadPoolExecutor(1)
 
-    def __init__(self, jvm, jimain, jbyteout, loop: Union[None, asyncio.AbstractEventLoop]=None):
+    def __init__(self, jvm, jimain, jbyteout):
         self.jvm = jvm
         self.jimain = jimain
         self.jbyteout = jbyteout
         self.log = logging.getLogger(self.__class__.__name__)
-
-        if loop is None:
-            # TODO: We may want to use new_event_loop here to avoid stopping
-            # and starting the main one.
-            loop = asyncio.get_event_loop()
-        self.loop = loop
 
         # Store the state here so that clients of the instance
         # can access them (for now ...)
@@ -270,15 +284,31 @@ class ScalaInterpreter(object):
         self.web_ui_url = get_web_ui_url(self.sc)
         self._jcompleter = None
 
-        # Create a temp directory that will contain the stdout/stderr
-        # files written by Scala and read by Python
-        tempdir = tempfile.mkdtemp()
-        atexit.register(shutil.rmtree, tempdir, True)
-
         # Handlers for dealing with stdout and stderr.
         self._stdout_handlers = []
         self._stderr_handlers = []
-        self._initialize_stdout_err(tempdir)
+
+        # Threads that perform blocking reads on the stdout/stderr
+        # streams from the py4j JVM process.
+        if spark_state.spark_jvm_proc.stdout is not None:
+            self.stdout_reader = threading.Thread(target=self._read_stream,
+                daemon=True,
+                kwargs=dict(
+                    fd=spark_state.spark_jvm_proc.stdout,
+                    fn=self.handle_stdout
+                )
+            )
+            self.stdout_reader.start()
+
+        if spark_state.spark_jvm_proc.stderr is not None:
+            self.stderr_reader = threading.Thread(target=self._read_stream,
+                daemon=True,
+                kwargs=dict(
+                    fd=spark_state.spark_jvm_proc.stderr,
+                    fn=self.handle_stderr
+                )
+            )
+            self.stderr_reader.start()
 
     def register_stdout_handler(self, handler):
         """Registers a handler for the Scala stdout stream.
@@ -300,136 +330,59 @@ class ScalaInterpreter(object):
         """
         self._stderr_handlers.append(handler)
 
-    def _initialize_stdout_err(self, tempdir):
-        """Redirects stdout/stderr in the Scala interpreter to two files in the
-        given tempdir and begins async tasks to poll those files for lines of text.
+    def handle_stdout(self, chunk):
+        """Passes a chunk of Scala stdout to registered handlers.
 
         Parameters
         ----------
-        tempdir : str
-            Temporary directory
-        """
-        stdout_file = os.path.abspath(os.path.join(tempdir, 'stdout'))
-        stderr_file = os.path.abspath(os.path.join(tempdir, 'stderr'))
-
-        code = 'Console.set{pipe}(new PrintStream(new FileOutputStream(new File(new java.net.URI("{filename}")), true)))'
-        code = '\n'.join([
-            'import java.io.{PrintStream, FileOutputStream, File}',
-            'import scala.Console',
-            # Set console out and error for the main thread
-            code.format(pipe="Out", filename=pathlib.Path(stdout_file).as_uri()),
-            code.format(pipe="Err", filename=pathlib.Path(stderr_file).as_uri()),
-        ])
-        self.interpret(code)
-
-        self.loop.create_task(self._poll_file(stdout_file, self.handle_stdout))
-        self.loop.create_task(self._poll_file(stderr_file, self.handle_stderr))
-
-    def handle_stdout(self, line):
-        """Passes a line of Scala stdout to registered handlers.
-
-        Parameters
-        ----------
-        line : str
-            Line of text
+        chunk : str
+            Chunk of text
         """
         for handler in self._stdout_handlers:
-            handler(line)
+            try:
+                handler(chunk)
+            except Exception as ex:
+                self.log.exception('Exception handling stdout')
 
-    def handle_stderr(self, line):
-        """Passes a line of Scala stderr to registered handlers.
+    def handle_stderr(self, chunk):
+        """Passes a chunk of Scala stderr to registered handlers.
 
         Parameters
         ----------
-        line : str
-            Line of text
+        chunk : str
+            Chunk of text
         """
         for handler in self._stderr_handlers:
-            handler(line)
+            try:
+                handler(chunk)
+            except Exception as ex:
+                self.log.exception('Exception handling stderr')
 
-    async def _poll_file(self, filename, fn):
-        """Busy-polls a file for lines of text and passes them to
-        the provided callback function when available.
+    def _read_stream(self, fd, fn):
+        """Reads bytes from a file descriptor, utf-8 decodes them, and passes them
+        to the provided callback function on the next IOLoop tick.
+
+        Assumes fd.read will block and should be used in a thread.
 
         Parameters
         ----------
-        filename : str
-            Filename to poll for lines of text
+        fd : file
+            File descriptor to read
         fn : callable(str) -> None
-            Callback function that handles lines of text
+            Callback function that handles chunks of text
         """
-        fd = open(filename, 'r')
         while True:
-            chars = fd.read(4096)
-            if chars:
-                fn(chars)
-                await asyncio.sleep(0, loop=self.loop)
-            else:
-                await asyncio.sleep(0.01, loop=self.loop)
-
-    def _interpret_sync(self, code, synthetic=False):
-        """Synchronously interprets a Block of scala code and returns the
-        string output from the Scala REPL.
-
-        If you want to get the result as a Python object, follow this with a
-        call to `last_result`.
-
-        Parameters
-        ----------
-        code : str
-            Scala code to interpret
-        synthetic : bool, optional
-            Use synthetic Scala classes (?)
-
-        Returns
-        -------
-        str
-            String output from the scala REPL
-
-        Raises
-        ------
-        ScalaException
-            When there is a problem interpreting the code
-        """
-        try:
-            res = self.jimain.interpret(code, synthetic)
-            pyres = self.jbyteout.toByteArray().decode("utf-8")
-            # The scala interpreter returns a sentinel case class member here
-            # which is typically matched via pattern matching.  Due to it
-            # having a very long namespace, we just resort to simple string
-            # matching here.
-            result = res.toString()
-            if result == "Success":
-                return pyres
-            elif result == 'Error':
-                raise ScalaException(pyres)
-            elif result == 'Incomplete':
-                raise ScalaException(pyres or '<console>: error: incomplete input')
-            return pyres
-        finally:
-            self.jbyteout.reset()
-
-    async def _interpret_async(self, code, future):
-        """Asynchronously interprets a block of Scala code and sets the
-        output or exception as the result of the future.
-
-        Parameters
-        ----------
-        code : str
-            Scala code to interpret
-        future : Future
-            Future result or exception
-        """
-        try:
-            result = await self.loop.run_in_executor(self.executor, self._interpret_sync, code)
-            future.set_result(result)
-        except Exception as e:
-            future.set_exception(e)
+            # Specify a max read size so the read doesn't block indefinitely
+            # Using a value less than the typical default max pipe size
+            # and greater than a single system page.
+            buff = fd.read(8192)
+            if buff:
+                fn(buff.decode('utf-8'))
 
     def interpret(self, code):
         """Interprets a block of Scala code.
 
-        Follow this with a call `last_result` to retrieve the result as a
+        Follow this with a call to `last_result` to retrieve the result as a
         Python object.
 
         Parameters
@@ -448,12 +401,26 @@ class ScalaInterpreter(object):
             When there is a problem interpreting the code
         """
         # Ensure the cell is not incomplete. Same approach taken by Apache Zeppelin.
+        # https://github.com/apache/zeppelin/blob/3219218620e795769e6f65287f134b6a43e9c010/spark/src/main/java/org/apache/zeppelin/spark/SparkInterpreter.java#L1263
         code = 'print("")\n'+code
 
-        fut = asyncio.Future(loop=self.loop)
-        asyncio.ensure_future(self._interpret_async(code, fut), loop=self.loop)
-        res = self.loop.run_until_complete(fut)
-        return res
+        try:
+            res = self.jimain.interpret(code, False)
+            pyres = self.jbyteout.toByteArray().decode("utf-8")
+            # The scala interpreter returns a sentinel case class member here
+            # which is typically matched via pattern matching.  Due to it
+            # having a very long namespace, we just resort to simple string
+            # matching here.
+            result = res.toString()
+            if result == "Success":
+                return pyres
+            elif result == 'Error':
+                raise ScalaException(pyres)
+            elif result == 'Incomplete':
+                raise ScalaException(pyres or '<console>: error: incomplete input')
+            return pyres
+        finally:
+            self.jbyteout.reset()
 
     def last_result(self):
         """Retrieves the JVM result object from the preceeding call to `interpret`.

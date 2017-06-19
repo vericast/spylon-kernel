@@ -38,4 +38,4 @@ release: clean ## Make a pypi release of a tagged build
 	$(SA) $(ENV) && python setup.py sdist register upload
 
 test: ## Make a test run
-	$(SA) $(ENV) && python run_tests.py -vxrs --capture=sys --color=yes
+	$(SA) $(ENV) && python run_tests.py -vxrs --color=yes

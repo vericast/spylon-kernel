@@ -2,7 +2,7 @@
 import logging
 import spylon.spark
 
-from metakernel import Magic
+from metakernel import Magic, option
 from .scala_interpreter import init_spark
 
 try:
@@ -19,21 +19,27 @@ class InitSparkMagic(Magic):
 
     Attributes
     ----------
-    env : __builtins__
-        Copy of the Python builtins
+    env : dict
+        Copy of the Python builtins plus a spylon.spark.launcher.SparkConfiguration
+        object for use when initializing the Spark context
     log : logging.Logger
         Logger for this instance
     """
     def __init__(self, kernel):
         super(InitSparkMagic, self).__init__(kernel)
         self.env = globals()['__builtins__'].copy()
-        self.env['application_name'] = None
         self.env['launcher'] = spylon.spark.launcher.SparkConfiguration()
         self.log = logging.Logger(self.__class__.__name__)
 
-    def cell_init_spark(self):
-        """Starts a SparkContext with a custom configuration defined
-        using Python code.
+    # Use optparse to parse the whitespace delimited cell magic options
+    # just as we would parse a command line.
+    @option(
+        "--stderr", action="store_true", default=False,
+        help="Capture stderr in the notebook instead of in the kernel log"
+    )
+    def cell_init_spark(self, stderr=False):
+        """%%init_spark [--stderr] - starts a SparkContext with a custom
+        configuration defined using Python code in the body of the cell
 
         Includes a `spylon.spark.launcher.SparkConfiguration` instance
         in the variable `launcher`. Looks for an `application_name`
@@ -42,17 +48,15 @@ class InitSparkMagic(Magic):
         Example
         -------
         %%init_spark
-        application_name = "My Fancy App"
         launcher.jars = ["file://some/jar.jar"]
         launcher.master = "local[4]"
+        launcher.conf.spark.app.name = "My Fancy App"
         launcher.conf.spark.executor.cores = 8
         """
         # Evaluate the cell contents as Python
         exec(self.code, self.env)
-        # Use the launcher and application_name as arguments to spylon to
-        # initialize a spark session
-        init_spark(conf=self.env['launcher'],
-                   application_name=self.env['application_name'])
+        # Use the launcher to initialize a spark session
+        init_spark(conf=self.env['launcher'], capture_stderr=stderr)
         # Do not evaluate the cell contents using the kernel
         self.evaluate = False
 

@@ -1,14 +1,11 @@
 """Example use of jupyter_kernel_test, with tests for IPython."""
 
 import unittest
+
 import jupyter_kernel_test
-import os
+
+from spylon_kernel.scala_interpreter import init_spark
 from textwrap import dedent
-from unittest import SkipTest
-
-
-coverage_rc = os.path.abspath(os.path.join(os.path.dirname(__file__), ".coveragerc"))
-os.environ["COVERAGE_PROCESS_START"] = coverage_rc
 
 
 class SpylonKernelTests(jupyter_kernel_test.KernelTests):
@@ -28,7 +25,7 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
         '''
 
     code_stderr = '''
-        Console.err.println("Error")
+        Console.err.println("oh noes!")
         // Sleep for a bit since the process for getting text output is asynchronous
         Thread.sleep(1000)
         '''
@@ -39,38 +36,23 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
 
     code_generate_error = "4 / 0"
 
-    def test_execute_stderr(self):
-        if not self.code_stderr:
-            raise SkipTest
+    code_execute_result = [{
+        'code': 'val x = 1',
+        'result': 'x: Int = 1\n'
+    }, {
+        'code': 'val y = 1 to 3',
+        'result': 'y: scala.collection.immutable.Range.Inclusive = Range(1, 2, 3)\n'
+    }]
 
+    spark_configured = False
+
+    def setUp(self):
+        """Set up to capture stderr for testing purposes."""
+        super(SpylonKernelTests, self).setUp()
         self.flush_channels()
-        reply, output_msgs = self.execute_helper(code=self.code_stderr)
-
-        self.assertEqual(reply['content']['status'], 'ok')
-
-        self.assertGreaterEqual(len(output_msgs), 1)
-        for msg in output_msgs:
-            if (msg['msg_type'] == 'stream') and msg['content']['name'] == 'stderr':
-                break
-        else:
-            self.assertTrue(False, "Expected at least one 'stream' message of type 'stderr'")
-
-    def test_execute_stdout(self):
-        if not self.code_hello_world:
-            raise SkipTest
-
-        self.flush_channels()
-        reply, output_msgs = self.execute_helper(code=self.code_hello_world)
-
-        self.assertEqual(reply['content']['status'], 'ok')
-
-        self.assertGreaterEqual(len(output_msgs), 1)
-        for msg in output_msgs:
-            if (msg['msg_type'] == 'stream') and msg['content']['name'] == 'stdout':
-                self.assertIn('hello, world', msg['content']['text'])
-                break
-        else:
-            self.assertTrue(False, "Expected at least one 'stream' message of type 'stdout' ")
+        if not self.spark_configured:
+            self.execute_helper(code='%%init_spark --stderr')
+            self.spark_configured = True
 
 
 if __name__ == '__main__':
