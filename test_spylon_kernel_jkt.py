@@ -1,15 +1,11 @@
 """Example use of jupyter_kernel_test, with tests for IPython."""
 
-import os
 import unittest
 
 import jupyter_kernel_test
 
 from spylon_kernel.scala_interpreter import init_spark
 from textwrap import dedent
-
-coverage_rc = os.path.abspath(os.path.join(os.path.dirname(__file__), ".coveragerc"))
-os.environ["COVERAGE_PROCESS_START"] = coverage_rc
 
 
 class SpylonKernelTests(jupyter_kernel_test.KernelTests):
