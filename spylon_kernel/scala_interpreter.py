@@ -25,15 +25,15 @@ scala_intp = None
 DEFAULT_APPLICATION_NAME = "spylon-kernel"
 
 
-def init_spark(conf=None):
+def init_spark(conf=None, capture_stderr=False):
     """Initializes a SparkSession.
 
     Parameters
     ----------
     conf: spylon.spark.SparkConfiguration, optional
         Spark configuration to apply to the session
-    application_name: str, optional
-        Name to give the session
+    capture_stderr: bool, optional
+        Capture stderr from the Spark JVM or let it go to the kernel log
 
     Returns
     -------
@@ -86,9 +86,11 @@ def init_spark(conf=None):
         # Set streams to unbuffered so that we read whatever bytes are available
         # when ready, https://docs.python.org/3.6/library/subprocess.html#popen-constructor
         kwargs['bufsize'] = 0
-        # Capture everything from stdout and stderr
+        # Capture everything from stdout for display in the notebook
         kwargs['stdout'] = subprocess.PIPE
-        kwargs['stderr'] = subprocess.PIPE
+        # Optionally capture stderr, otherwise it'll go to the kernel log
+        if capture_stderr:
+            kwargs['stderr'] = subprocess.PIPE
         spark_jvm_proc = subprocess.Popen(*args, **kwargs)
         return spark_jvm_proc
     pyspark.java_gateway.Popen = Popen
@@ -170,7 +172,7 @@ def initialize_scala_interpreter():
     bytes_out = jvm.org.apache.commons.io.output.ByteArrayOutputStream()
     jprint_writer = io.PrintWriter(bytes_out, True)
 
-    # Set the Spark applicaiton name if it is not already set
+    # Set the Spark application name if it is not already set
     jconf.setIfMissing("spark.app.name", DEFAULT_APPLICATION_NAME)
 
     # Set the location of the Spark package on HDFS, if available
@@ -288,24 +290,25 @@ class ScalaInterpreter(object):
 
         # Threads that perform blocking reads on the stdout/stderr
         # streams from the py4j JVM process.
-        self.stdout_reader = threading.Thread(target=self._read_stream,
-            daemon=True,
-            kwargs=dict(
-                fd=spark_state.spark_jvm_proc.stdout,
-                fn=self.handle_stdout
+        if spark_state.spark_jvm_proc.stdout is not None:
+            self.stdout_reader = threading.Thread(target=self._read_stream,
+                daemon=True,
+                kwargs=dict(
+                    fd=spark_state.spark_jvm_proc.stdout,
+                    fn=self.handle_stdout
+                )
             )
-        )
-        self.stderr_reader = threading.Thread(target=self._read_stream,
-            daemon=True,
-            kwargs=dict(
-                fd=spark_state.spark_jvm_proc.stderr,
-                fn=self.handle_stderr
-            )
-        )
+            self.stdout_reader.start()
 
-        # Start the stream reader threads running
-        self.stdout_reader.start()
-        self.stderr_reader.start()
+        if spark_state.spark_jvm_proc.stderr is not None:
+            self.stderr_reader = threading.Thread(target=self._read_stream,
+                daemon=True,
+                kwargs=dict(
+                    fd=spark_state.spark_jvm_proc.stderr,
+                    fn=self.handle_stderr
+                )
+            )
+            self.stderr_reader.start()
 
     def register_stdout_handler(self, handler):
         """Registers a handler for the Scala stdout stream.
@@ -336,7 +339,10 @@ class ScalaInterpreter(object):
             Chunk of text
         """
         for handler in self._stdout_handlers:
-            handler(chunk)
+            try:
+                handler(chunk)
+            except Exception as ex:
+                self.log.exception('Exception handling stdout')
 
     def handle_stderr(self, chunk):
         """Passes a chunk of Scala stderr to registered handlers.
@@ -347,7 +353,10 @@ class ScalaInterpreter(object):
             Chunk of text
         """
         for handler in self._stderr_handlers:
-            handler(chunk)
+            try:
+                handler(chunk)
+            except Exception as ex:
+                self.log.exception('Exception handling stderr')
 
     def _read_stream(self, fd, fn):
         """Reads bytes from a file descriptor, utf-8 decodes them, and passes them

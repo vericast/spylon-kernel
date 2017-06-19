@@ -2,7 +2,7 @@
 import logging
 import spylon.spark
 
-from metakernel import Magic
+from metakernel import Magic, option
 from .scala_interpreter import init_spark
 
 try:
@@ -31,9 +31,15 @@ class InitSparkMagic(Magic):
         self.env['launcher'] = spylon.spark.launcher.SparkConfiguration()
         self.log = logging.Logger(self.__class__.__name__)
 
-    def cell_init_spark(self):
-        """Starts a SparkContext with a custom configuration defined
-        using Python code.
+    # Use argparse to parse the whitespace delimited cell magic options
+    # just as we would parse a command line.
+    @option(
+        "--stderr", action="store_true", default=False,
+        help="Capture stderr in the notebook instead of in the kernel log"
+    )
+    def cell_init_spark(self, stderr=False):
+        """%%init_spark --stderr CODE - starts a SparkContext with a custom
+        configuration defined using Python code
 
         Includes a `spylon.spark.launcher.SparkConfiguration` instance
         in the variable `launcher`. Looks for an `application_name`
@@ -50,7 +56,7 @@ class InitSparkMagic(Magic):
         # Evaluate the cell contents as Python
         exec(self.code, self.env)
         # Use the launcher to initialize a spark session
-        init_spark(conf=self.env['launcher'])
+        init_spark(conf=self.env['launcher'], capture_stderr=stderr)
         # Do not evaluate the cell contents using the kernel
         self.evaluate = False
 
