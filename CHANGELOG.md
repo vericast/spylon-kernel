@@ -1,3 +1,7 @@
+# 0.4.0
+
+* [PR-38](https://github.com/maxpoint/spylon-kernel/pull/38) - Capture all stdout/stderr from the py4j JVM
+
 # 0.3.2
 
 * [PR-36](https://github.com/maxpoint/spylon-kernel/pull/35) - Revert to setting stdout/stderr once, fix typos and nits
