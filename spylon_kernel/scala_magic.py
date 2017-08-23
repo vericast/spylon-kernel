@@ -10,7 +10,7 @@ from metakernel.process_metakernel import TextOutput
 from tornado import ioloop, gen
 from textwrap import dedent
 
-from .scala_interpreter import get_scala_interpreter, ScalaException
+from .scala_interpreter import get_scala_interpreter, scala_intp, ScalaException
 from . import scala_interpreter
 
 
@@ -29,7 +29,7 @@ class ScalaMagic(Magic):
     def __init__(self, kernel):
         super(ScalaMagic, self).__init__(kernel)
         self.retval = None
-        self._interp = None
+        self._interp = scala_intp
         self._is_complete_ready = False
 
     def _get_scala_interpreter(self):
@@ -44,9 +44,11 @@ class ScalaMagic(Magic):
             assert isinstance(self.kernel, MetaKernel)
             self.kernel.Display(TextOutput("Intitializing Scala interpreter ..."))
             self._interp = get_scala_interpreter()
+
             # Ensure that spark is available in the python session as well.
-            self.kernel.cell_magics['python'].env['spark'] = self._interp.spark_session
-            self.kernel.cell_magics['python'].env['sc'] = self._interp.sc
+            if 'python' in self.kernel.cell_magics: # tests if in scala mode
+                self.kernel.cell_magics['python'].env['spark'] = self._interp.spark_session
+                self.kernel.cell_magics['python'].env['sc'] = self._interp.sc
 
             # Display some information about the Spark session
             sc = self._interp.sc
