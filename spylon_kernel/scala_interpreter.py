@@ -183,7 +183,13 @@ def initialize_scala_interpreter():
     # Configure the classpath and temp directory created by init_spark
     # as the shared path for REPL generated artifacts
     output_dir = jconf.get("spark.repl.class.outputDir")
-    jars = jvm.org.apache.spark.util.Utils.getUserJars(jconf, True).mkString(":")
+    try:
+        # Spark 2.2.1+
+        jars = jvm.org.apache.spark.util.Utils.getLocalUserJarsForShell(jconf).mkString(":")
+    except:
+        # Spark <2.2.1
+        jars = jvm.org.apache.spark.util.Utils.getUserJars(jconf, True).mkString(":")
+
     interp_arguments = spark_jvm_helpers.to_scala_list(
         ["-Yrepl-class-based", "-Yrepl-outdir", output_dir,
          "-classpath", jars, "-deprecation:false"
