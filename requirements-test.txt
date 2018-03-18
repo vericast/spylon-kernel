@@ -1,3 +1,4 @@
+pyspark
 pytest
 coverage
 jupyter_kernel_test
