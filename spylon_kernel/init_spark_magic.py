@@ -7,7 +7,8 @@ from .scala_interpreter import init_spark
 
 try:
     import jedi
-    from jedi.api.helpers import get_on_completion_name, split_lines
+    from jedi.api.helpers import get_on_completion_name
+    from jedi import common
 except ImportError as ex:
     jedi = None
 
@@ -78,7 +79,7 @@ class InitSparkMagic(Magic):
         position = (info['line_num'], info['column'])
         interpreter = jedi.Interpreter(text, [self.env])
 
-        lines = split_lines(text)
+        lines = common.splitlines(text)
         name = get_on_completion_name(
             interpreter._get_module_node(),
             lines,
