@@ -1,5 +1,5 @@
 ipykernel
-jedi>=0.10
+jedi<0.11
 metakernel
 spylon[spark]
 tornado
