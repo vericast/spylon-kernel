@@ -1,3 +1,7 @@
+# 0.4.1
+
+* [PR-44](https://github.com/Valassis-Digital-Media/spylon-kernel/pull/44) - Fix Spark 2.2.1 compatibility
+
 # 0.4.0
 
 * [PR-38](https://github.com/maxpoint/spylon-kernel/pull/38) - Capture all stdout/stderr from the py4j JVM
