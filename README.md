@@ -1,6 +1,8 @@
 # spylon-kernel
-[![Build Status](https://travis-ci.org/maxpoint/spylon-kernel.svg?branch=master)](https://travis-ci.org/maxpoint/spylon-kernel)
-[![codecov](https://codecov.io/gh/maxpoint/spylon-kernel/branch/master/graph/badge.svg)](https://codecov.io/gh/maxpoint/spylon-kernel)
+
+[![Project Status: Inactive – The project has reached a stable, usable state but is no longer being actively developed; support/maintenance will be provided as time allows.](https://www.repostatus.org/badges/latest/inactive.svg)](https://www.repostatus.org/#inactive)
+[![Build Status](https://travis-ci.org/Valassis-Digital-Media/spylon-kernel.svg?branch=master)](https://travis-ci.org/maxpoint/spylon-kernel)
+[![codecov](https://codecov.io/gh/Valassis-Digital-Media/spylon-kernel/branch/master/graph/badge.svg)](https://codecov.io/gh/maxpoint/spylon-kernel)
 
 A Scala [Jupyter kernel](http://jupyter.readthedocs.io/en/latest/projects/kernels.html) that uses [metakernel](https://github.com/Calysto/metakernel) in combination with [py4j](https://www.py4j.org/).
 
