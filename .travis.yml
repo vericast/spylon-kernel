@@ -17,7 +17,7 @@ script:
   - python run_tests.py -vxrs --capture=sys --color=yes
   # Ensure installability
   - python setup.py sdist
-  - pip install --no-use-wheel dist/*.tar.gz
+  - pip install --no-binary :all: dist/*.tar.gz
 
 # Cache these at the end of the build
 cache:
