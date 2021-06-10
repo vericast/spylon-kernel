@@ -383,7 +383,7 @@ class ScalaInterpreter(object):
             # and greater than a single system page.
             buff = fd.read(8192)
             if buff:
-                fn(buff.decode('utf-8'))
+                fn(buff.decode('iso-8859-1'))
 
     def interpret(self, code):
         """Interprets a block of Scala code.
@@ -412,7 +412,7 @@ class ScalaInterpreter(object):
 
         try:
             res = self.jimain.interpret(code, False)
-            pyres = self.jbyteout.toByteArray().decode("utf-8")
+            pyres = self.jbyteout.toByteArray().decode("iso-8859-1")
             # The scala interpreter returns a sentinel case class member here
             # which is typically matched via pattern matching.  Due to it
             # having a very long namespace, we just resort to simple string
