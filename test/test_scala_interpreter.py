@@ -11,7 +11,7 @@ def scala_interpreter(request):
 
 def test_simple_expression(scala_interpreter):
     result = scala_interpreter.interpret("4 + 4")
-    assert re.match('res\d+: Int = 8\n', result)
+    assert re.match(r'res\d+: Int = 8\n', result)
 
 
 def test_completion(scala_interpreter):
