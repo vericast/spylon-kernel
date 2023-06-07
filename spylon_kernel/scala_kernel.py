@@ -18,7 +18,7 @@ class SpylonKernel(MetaKernel):
     implementation = 'spylon-kernel'
     implementation_version = get_versions()['version']
     language = 'scala'
-    language_version = '2.11'
+    language_version = '2.12'
     banner = "spylon-kernel - evaluates Scala statements and expressions."
     language_info = {
         'mimetype': 'text/x-scala',
