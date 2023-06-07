@@ -41,7 +41,7 @@ class SpylonKernelTests(jupyter_kernel_test.KernelTests):
         'result': 'x: Int = 1\n'
     }, {
         'code': 'val y = 1 to 3',
-        'result': 'y: scala.collection.immutable.Range.Inclusive = Range(1, 2, 3)\n'
+        'result': 'y: scala.collection.immutable.Range.Inclusive = Range 1 to 3\n'
     }]
 
     spark_configured = False
