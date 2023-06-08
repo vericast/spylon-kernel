@@ -96,3 +96,6 @@ README.rst
 
 # Extra development notebooks
 Untitled*.ipynb
+
+# sonar
+.scannerwork
