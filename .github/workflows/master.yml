@@ -30,12 +30,16 @@ jobs:
         pip install -r requirements-test.txt
         pip install codecov
         python -m spylon_kernel install --user
+      env:
+        JUPYTER_PLATFORM_DIRS: 1
 
     - name: Test with pytest
       run: |
         python run_tests.py -vxrs --capture=sys --color=yes
         python setup.py sdist
         pip install --no-binary :all: dist/*.tar.gz
+      env:
+        JUPYTER_PLATFORM_DIRS: 1
 
     - name: Cache pip
       uses: actions/cache@v2
@@ -57,3 +61,4 @@ jobs:
       if: success()
       run: |
         codecov
+
