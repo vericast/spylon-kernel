@@ -408,7 +408,7 @@ class ScalaInterpreter(object):
         """
         # Ensure the cell is not incomplete. Same approach taken by Apache Zeppelin.
         # https://github.com/apache/zeppelin/blob/3219218620e795769e6f65287f134b6a43e9c010/spark/src/main/java/org/apache/zeppelin/spark/SparkInterpreter.java#L1263
-        code = code if code.endswith('\n') else code+'\n'
+        code = 'print("")\n'+code
 
         try:
             res = self.jimain.interpret(code, False)
