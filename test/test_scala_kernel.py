@@ -71,11 +71,15 @@ def test_iscomplete(spylon_kernel):
 
 
 def test_last_result(spylon_kernel):
-    spylon_kernel.do_execute_direct("""
+    result = spylon_kernel.do_execute_direct("""
     case class LastResult(member: Int)
     val foo = LastResult(8)
     """)
+    print("Execution result: ", result)
+
     foo = spylon_kernel.get_variable("foo")
+    print("Retrieved foo: ", foo)
+
     assert foo
 
 
