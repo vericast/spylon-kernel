@@ -2,6 +2,7 @@
 import logging
 import spylon.spark
 
+from parso import split_lines
 from metakernel import Magic, option
 from .scala_interpreter import init_spark
 
@@ -78,7 +79,7 @@ class InitSparkMagic(Magic):
         position = (info['line_num'], info['column'])
         interpreter = jedi.Interpreter(text, [self.env])
 
-        lines = text.splitlines()
+        lines = split_lines(text)
         name = get_on_completion_name(
             interpreter._get_module_node(),
             lines,
