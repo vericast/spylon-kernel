@@ -16,7 +16,7 @@ setup(
     url='http://github.com/maxpoint/spylon-kernel',
     install_requires=[
         'ipykernel',
-        'jedi>=0.10',
+        'jedi',
         'metakernel',
         'spylon[spark]',
         'tornado',

@@ -42,7 +42,7 @@ def test_simple_expression(spylon_kernel):
     result = spylon_kernel.do_execute_direct("4 + 4")
     assert isinstance(result, TextOutput)
     output = result.output
-    assert re.match('res\d+: Int = 8\n', output)
+    assert re.match(r'res\d+: Int = 8\n', output)
 
 
 def test_exception(spylon_kernel):

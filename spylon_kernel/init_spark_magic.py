@@ -2,13 +2,13 @@
 import logging
 import spylon.spark
 
+from parso import split_lines
 from metakernel import Magic, option
 from .scala_interpreter import init_spark
 
 try:
     import jedi
     from jedi.api.helpers import get_on_completion_name
-    from jedi import common
 except ImportError as ex:
     jedi = None
 
@@ -79,7 +79,7 @@ class InitSparkMagic(Magic):
         position = (info['line_num'], info['column'])
         interpreter = jedi.Interpreter(text, [self.env])
 
-        lines = common.splitlines(text)
+        lines = split_lines(text)
         name = get_on_completion_name(
             interpreter._get_module_node(),
             lines,
