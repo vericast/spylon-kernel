@@ -42,7 +42,7 @@ def test_simple_expression(spylon_kernel):
     result = spylon_kernel.do_execute_direct("4 + 4")
     assert isinstance(result, TextOutput)
     output = result.output
-    assert re.match(r'res\d+: Int = 8\n', output)
+    assert re.match('res\d+: Int = 8\n', output)
 
 
 def test_exception(spylon_kernel):
@@ -71,15 +71,11 @@ def test_iscomplete(spylon_kernel):
 
 
 def test_last_result(spylon_kernel):
-    result = spylon_kernel.do_execute_direct("""
+    spylon_kernel.do_execute_direct("""
     case class LastResult(member: Int)
     val foo = LastResult(8)
     """)
-    print("Execution result: ", result)
-
     foo = spylon_kernel.get_variable("foo")
-    print("Retrieved foo: ", foo)
-
     assert foo
 
 

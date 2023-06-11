@@ -52,7 +52,7 @@ def init_spark(conf=None, capture_stderr=False):
 
     # Create a temp directory that gets cleaned up on exit
     output_dir = os.path.abspath(tempfile.mkdtemp())
-    def cleanup(signalnum=None, frame=None):
+    def cleanup():
         shutil.rmtree(output_dir, True)
     atexit.register(cleanup)
     signal.signal(signal.SIGTERM, cleanup)
