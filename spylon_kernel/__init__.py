@@ -30,6 +30,5 @@ def register_ipython_magics():
         init_spark_magic.code = cell
         return init_spark_magic.cell_init_spark()
 
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
+from . import _version
+__version__ = _version.get_versions()['version']
